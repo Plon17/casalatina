@@ -11,11 +11,11 @@ $modulos = [
     "compras"   => ["🛒", "COMPRAS",         "compras.php"],
     "gasto_det" => ["💲", "DETALLE DE GASTO","detalle_gasto.php"],
     "prov"      => ["🚚", "PROVEEDORES",     "proveedores.php"],
-    "pedido"    => ["🍽️", "PEDIDO",          "pedido_paso1.php"],
+    "pedido"    => ["🍳", "PEDIDO",          "pedido_paso1.php"],
     "stock"     => ["📋", "STOCK",           "stock.php"],
     "gastos"    => ["💵", "GASTOS",          "gastos.php"],
     "reporte"   => ["📊", "REPORTE",         "reportes.php"],
-    "mesas"   => ["📊", "MESAS",         "pedidos_listado.php"],
+    "mesas"   => ["🍽️", "MESAS",         "pedidos_listado.php"],
 ];
 
 // Los que puede ver el empleado
