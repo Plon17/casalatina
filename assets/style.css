@@ -1,0 +1,259 @@
+body {
+    background: linear-gradient(135deg, #f57c1f 0%, #ffb347 100%);
+    font-family: Arial, sans-serif;
+    margin: 0;
+    color: #111;
+    min-height: 100vh;
+}
+
+.topbar {
+    background: #000;
+    color: #fff;
+    padding: 16px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 20px;
+    position: relative;
+}
+
+.topbar a.volver {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 14px;
+    border: 1px solid #fff;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.topbar a.volver:hover {
+    background: #fff;
+    color: #000;
+}
+
+.container {
+    padding: 25px 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 100px);
+    padding: 40px 20px;
+}
+
+h1, h2, h3 {
+    color: #111;
+}
+
+.titulo-modulo {
+    text-align: center;
+    font-weight: bold;
+    font-size: 22px;
+    margin-bottom: 20px;
+}
+
+input[type=text],
+input[type=number],
+input[type=date],
+input[type=password],
+select,
+textarea {
+    padding: 10px;
+    border: 1px solid #999;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 350px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+    color: #111;
+}
+
+button, .btn {
+    background: #ffb347;
+    border: 1px solid #d46c00;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #000;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s ease;
+}
+
+button:hover, .btn:hover {
+    background: #ffc76b;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 12px 14px;
+    font-size: 14px;
+    text-align: left;
+}
+
+table th {
+    background: #f5f5f5;
+}
+
+.caja-blanca {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    overflow-y: auto;
+}
+
+.logo-box {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    text-align: center;
+    width: auto;
+    margin: 0 auto 20px auto;
+}
+
+.login-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    min-width: 350px;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    color: #111;
+    font-size: 24px;
+}
+
+.login-box form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-box form label {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.login-box form input {
+    width: 100%;
+    max-width: 100%;
+}
+
+.login-box form button {
+    width: 100%;
+}
+
+.login-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    min-width: 350px;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    color: #111;
+    font-size: 24px;
+}
+
+.login-box form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-box form label {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.login-box form input {
+    width: 100%;
+    max-width: 100%;
+}
+
+.login-box form button {
+    width: 100%;
+}
+
+.logo-box .marca {
+    font-weight: bold;
+    color: #d4711f;
+    font-size: 20px;
+    border: 3px solid #d4711f;
+    border-radius: 50%;
+    padding: 20px 18px;
+    display: inline-block;
+}
+
+.fila {
+    margin-bottom: 16px;
+}
+
+.mensaje-error {
+    color: #c0392b;
+    font-weight: bold;
+}
+
+.mensaje-ok {
+    color: #1e6b1e;
+    font-weight: bold;
+}
+
+.menu-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px 40px;
+    margin-top: 40px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 220px;
+}
+
+.menu-item .icono {
+    font-size: 30px;
+}
+
+.menu-item a.btn {
+    flex: 1;
+    text-align: center;
+}
+
+.bienvenida {
+    text-align: center;
+    font-weight: bold;
+    font-size: 20px;
+    margin-top: 20px;
+}
