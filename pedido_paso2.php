@@ -22,7 +22,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "envia
         try {
             $pdo->prepare("DELETE FROM pedido_detalle WHERE ID_Pedido = ?")->execute([$idPedido]);
 
-            // ID_detped es varchar(10): usamos un contador global corto tipo D000001
             $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
             $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio)
                                        VALUES (?,?,?,?,?)");
@@ -54,7 +53,6 @@ if (!$pedido) {
     exit;
 }
 
-// Si ya pasó de "Abierto" (enviado a cocina o cobrado), aquí ya no se debe editar
 if ($pedido["estado"] !== "Abierto") {
     header("Location: pedido_cobro.php?id=" . urlencode($idPedido));
     exit;
@@ -67,11 +65,21 @@ $detalleStmt = $pdo->prepare("SELECT d.ID_Menu, d.cantidad, d.precio, m.nombre
 $detalleStmt->execute([$idPedido]);
 $detalle = $detalleStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$menu = $pdo->query("SELECT ID_Menu, nombre, precio, descripcion_men FROM menu")->fetchAll(PDO::FETCH_ASSOC);
-
 $titulo_pagina = "PEDIDO - PASO 2: REVISIÓN";
 require_once __DIR__ . "/includes/layout_top.php";
 ?>
+
+<style>
+.pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
+.pd-tabla{width:100%;border-collapse:collapse;}
+.pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
+.pd-tabla th{background:#f5f5f5;}
+.pd-totales{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;}
+.pd-field{display:flex;flex-direction:column;gap:4px;}
+.pd-field label{font-size:13px;color:#444;}
+.pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:120px;}
+.pd-actions{margin-top:16px;display:flex;gap:10px;}
+</style>
 
 <p class="titulo-modulo">Paso 2 de 3 — Revisar y enviar a cocina</p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
@@ -80,39 +88,22 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
-<div style="display:flex; gap:40px; flex-wrap:wrap;">
+<div class="pd-card">
+    <h3 style="margin-top:0;">Productos del pedido</h3>
+    <table class="pd-tabla" id="tablaPedido">
+    <tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal línea</th><th></th></tr>
+    </table>
 
-<div>
-    <label>Agregar otro producto — Buscar:</label>
-    <input type="text" id="buscar_menu" placeholder="Nombre o ID">
-    <div class="caja-blanca" style="width:320px; height:150px;">
-        <table id="tablaResultados">
-        <tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th></tr>
-        </table>
+    <div class="pd-totales">
+        <div class="pd-field"><label>Sub Total</label><input type="text" id="subtotal" readonly></div>
+        <div class="pd-field"><label>Impuesto (15%)</label><input type="text" id="impuesto" readonly></div>
+        <div class="pd-field"><label>Total</label><input type="text" id="total" readonly></div>
     </div>
-    <div class="fila"><label>Cod prod:</label><input type="text" id="cod_prod" readonly></div>
-    <div class="fila"><label>Nombre:</label><input type="text" id="nombre_item" readonly></div>
-    <div class="fila"><label>Precio:</label><input type="text" id="precio_item" readonly></div>
-    <div class="fila"><label>Cantidad:</label><input type="number" id="cantidad_item" value="1" min="1"></div>
-    <button type="button" onclick="agregarItem()">Agregar</button>
-</div>
 
-<div>
-    <div class="fila"><label>Sub Total:</label><input type="text" id="subtotal" readonly></div>
-    <div class="fila"><label>Impuesto (15%):</label><input type="text" id="impuesto" readonly></div>
-    <div class="fila"><label>Total:</label><input type="text" id="total" readonly></div>
-    <br>
-    <button type="button" onclick="volverPaso1()">← Nuevo pedido</button>
-    <button type="button" onclick="enviarCocina()">Enviar a Cocina →</button>
-</div>
-
-</div>
-
-<h3>Productos del pedido</h3>
-<div class="caja-blanca">
-<table id="tablaPedido">
-<tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal línea</th><th></th></tr>
-</table>
+    <div class="pd-actions">
+        <button type="button" onclick="volverPaso1()">← Volver (agregar más productos)</button>
+        <button type="button" onclick="enviarCocina()">Enviar a Cocina →</button>
+    </div>
 </div>
 
 <form method="POST" id="formEnviar" style="display:none;">
@@ -125,7 +116,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </form>
 
 <script>
-const menu = <?php echo json_encode($menu); ?>;
+const idPedido = <?php echo json_encode($idPedido); ?>;
 let itemsPedido = <?php echo json_encode(array_map(function ($d) {
     return [
         "id_menu" => $d["ID_Menu"],
@@ -134,38 +125,6 @@ let itemsPedido = <?php echo json_encode(array_map(function ($d) {
         "cantidad" => (int) $d["cantidad"]
     ];
 }, $detalle)); ?>;
-
-document.getElementById("buscar_menu").addEventListener("keyup", function () {
-    const texto = this.value.toLowerCase();
-    const tabla = document.getElementById("tablaResultados");
-    tabla.innerHTML = "<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th></tr>";
-    if (texto === "") return;
-    menu.filter(m => m.nombre.toLowerCase().includes(texto) || m.ID_Menu.toLowerCase().includes(texto))
-        .forEach(m => {
-            const fila = tabla.insertRow();
-            fila.style.cursor = "pointer";
-            fila.innerHTML = `<td>${m.ID_Menu}</td><td>${m.nombre}</td><td>${m.precio}</td>`;
-            fila.onclick = () => {
-                document.getElementById("cod_prod").value = m.ID_Menu;
-                document.getElementById("nombre_item").value = m.nombre;
-                document.getElementById("precio_item").value = m.precio;
-            };
-        });
-});
-
-function agregarItem() {
-    const idMenu = document.getElementById("cod_prod").value;
-    const nombre = document.getElementById("nombre_item").value;
-    const precio = parseFloat(document.getElementById("precio_item").value);
-    const cantidad = parseInt(document.getElementById("cantidad_item").value);
-    if (!idMenu || isNaN(precio) || isNaN(cantidad) || cantidad <= 0) {
-        alert("Selecciona un producto del menú y una cantidad válida.");
-        return;
-    }
-    itemsPedido.push({ id_menu: idMenu, nombre: nombre, precio: precio, cantidad: cantidad });
-    renderTablaPedido();
-    recalcularTotales();
-}
 
 function quitarItem(idx) {
     itemsPedido.splice(idx, 1);
@@ -193,7 +152,7 @@ function recalcularTotales() {
 }
 
 function volverPaso1() {
-    window.location.href = "pedido_paso1.php";
+    window.location.href = "pedido_paso1.php?id=" + encodeURIComponent(idPedido);
 }
 
 function enviarCocina() {

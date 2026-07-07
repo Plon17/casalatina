@@ -58,6 +58,18 @@ $titulo_pagina = "PEDIDO - PASO 3: COBRO";
 require_once __DIR__ . "/includes/layout_top.php";
 ?>
 
+<style>
+.pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
+.pd-tabla{width:100%;border-collapse:collapse;}
+.pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
+.pd-tabla th{background:#f5f5f5;}
+.pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
+.pd-field{display:flex;flex-direction:column;gap:4px;}
+.pd-field label{font-size:13px;color:#444;}
+.pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:120px;}
+.pd-actions{margin-top:16px;display:flex;gap:10px;}
+</style>
+
 <p class="titulo-modulo">Paso 3 de 3 — Cobro</p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
@@ -67,9 +79,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo $mensaje; ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
-<h3>Detalle del pedido</h3>
-<div class="caja-blanca">
-<table>
+<div class="pd-card">
+<h3 style="margin-top:0;">Detalle del pedido</h3>
+<table class="pd-tabla">
 <tr><th>ID</th><th>Nombre</th><th>Precio</th><th>Cantidad</th><th>Subtotal línea</th></tr>
 <?php foreach ($detalle as $d): ?>
 <tr>
@@ -85,20 +97,25 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <?php if ($pedido["estado"] === "EnCocina"): ?>
 
+<div class="pd-card">
 <form method="POST" onsubmit="return calcularCambioValido();">
     <input type="hidden" name="accion" value="cobrar">
     <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
 
-    <div class="fila"><label>Sub Total:</label><input type="text" value="<?php echo htmlspecialchars($pedido['subtotal']); ?>" readonly></div>
-    <div class="fila"><label>Impuesto (15%):</label><input type="text" value="<?php echo htmlspecialchars($pedido['impuesto']); ?>" readonly></div>
-    <div class="fila"><label>Total:</label><input type="text" id="total" value="<?php echo htmlspecialchars($pedido['total']); ?>" readonly></div>
-    <div class="fila"><label>Cajero:</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
-    <div class="fila"><label>Monto Recibido:</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" onkeyup="calcularCambio()" required></div>
-    <div class="fila"><label>Cambio:</label><input type="text" id="cambio" name="cambio" readonly></div>
+    <div class="pd-row">
+        <div class="pd-field"><label>Sub Total</label><input type="text" value="<?php echo htmlspecialchars($pedido['subtotal']); ?>" readonly></div>
+        <div class="pd-field"><label>Impuesto (15%)</label><input type="text" value="<?php echo htmlspecialchars($pedido['impuesto']); ?>" readonly></div>
+        <div class="pd-field"><label>Total</label><input type="text" id="total" value="<?php echo htmlspecialchars($pedido['total']); ?>" readonly></div>
+        <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
+        <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" onkeyup="calcularCambio()" required></div>
+        <div class="pd-field"><label>Cambio</label><input type="text" id="cambio" name="cambio" readonly></div>
+    </div>
 
-    <br>
-    <button type="submit">Cobrar</button>
+    <div class="pd-actions">
+        <button type="submit">Cobrar</button>
+    </div>
 </form>
+</div>
 
 <form method="POST" onsubmit="return confirm('¿Seguro que deseas cancelar este pedido?');">
     <input type="hidden" name="accion" value="cancelar_pedido">
