@@ -6,7 +6,7 @@ $es_admin = ($_SESSION["rol"] === "administrador");
 
 // Lista de todos los modulos: clave => [icono, texto, archivo]
 $modulos = [
-    "menu"      => ["📖", "MENÚ",            "menu.php"],
+    "menu"      => ["📖", "MENU",            "menu.php"],
     "factura"   => ["🧾", "FACTURA",         "factura.php"],
     "compras"   => ["🛒", "COMPRAS",         "compras.php"],
     "gasto_det" => ["💲", "DETALLE DE GASTO","detalle_gasto.php"],
