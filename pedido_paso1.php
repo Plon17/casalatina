@@ -5,10 +5,16 @@ require_once __DIR__ . "/includes/db.php";
 
 $error = "";
 
+// Si viene ?mesa=... (desde el mapa de mesas), precargamos el número para un pedido NUEVO
+$mesaPrefill = $_GET["mesa"] ?? null;
+
 // Si viene ?id=..., estamos volviendo a un pedido "Abierto" para seguir agregando productos
 $idEditar = $_GET["id"] ?? null;
 $pedidoExistente = null;
 $itemsExistentes = [];
+
+// Si viene ?mesa=N desde el grid de mesas (solo aplica al crear un pedido nuevo)
+$mesaPrefill = $_GET["mesa"] ?? null;
 
 if ($idEditar) {
     $stmt = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ? AND estado = 'Abierto'");
@@ -130,7 +136,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field chico" id="fila_mesa">
             <label>N° Mesa</label>
-            <input type="text" id="num_mesa" value="<?php echo htmlspecialchars($pedidoExistente["num_mesa"] ?? ""); ?>">
+            <input type="text" id="num_mesa" value="<?php echo htmlspecialchars($pedidoExistente["num_mesa"] ?? $mesaPrefill ?? ""); ?>">
         </div>
         <div class="pd-field">
             <label>Cajero</label>
