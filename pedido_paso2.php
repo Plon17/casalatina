@@ -31,6 +31,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "envia
                 $d++;
             }
 
+            // Calculamos cuánto insumo se necesita en total según la receta de cada plato pedido
+            $necesario = [];
+            $stmtIng = $pdo->prepare("SELECT ID_Producto, cantidad_necesaria FROM menu_ingredientes WHERE ID_Menu = ?");
+            foreach ($items as $it) {
+                $stmtIng->execute([$it["id_menu"]]);
+                foreach ($stmtIng->fetchAll(PDO::FETCH_ASSOC) as $ing) {
+                    $necesario[$ing["ID_Producto"]] = ($necesario[$ing["ID_Producto"]] ?? 0)
+                        + ($ing["cantidad_necesaria"] * $it["cantidad"]);
+                }
+            }
+
+            // Verificamos que haya suficiente stock antes de descontar nada
+            if ($necesario) {
+                $faltantes = [];
+                $stmtStock = $pdo->prepare("SELECT nombre_pro, cantidad_pro FROM producto WHERE ID_Producto = ?");
+                foreach ($necesario as $idProd => $cantNecesaria) {
+                    $stmtStock->execute([$idProd]);
+                    $prod = $stmtStock->fetch(PDO::FETCH_ASSOC);
+                    if (!$prod || $prod["cantidad_pro"] < $cantNecesaria) {
+                        $disponible = $prod["cantidad_pro"] ?? 0;
+                        $faltantes[] = ($prod["nombre_pro"] ?? $idProd) . " (disponible: $disponible, necesario: $cantNecesaria)";
+                    }
+                }
+                if ($faltantes) {
+                    throw new Exception("Stock insuficiente para: " . implode(", ", $faltantes));
+                }
+
+                $stmtDescontar = $pdo->prepare("UPDATE producto SET cantidad_pro = cantidad_pro - ? WHERE ID_Producto = ?");
+                foreach ($necesario as $idProd => $cantNecesaria) {
+                    $stmtDescontar->execute([$cantNecesaria, $idProd]);
+                }
+            }
+
             $stmt = $pdo->prepare("UPDATE pedido SET subtotal=?, impuesto=?, total=?, estado='EnCocina' WHERE ID_Pedido=?");
             $stmt->execute([$_POST["subtotal"], $_POST["impuesto"], $_POST["total"], $idPedido]);
 
