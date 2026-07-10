@@ -9,7 +9,7 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "registrar") {
 
     $idProducto = $_POST["id_producto"] ?? "";
-    $cantidad = (int) ($_POST["cantidad"] ?? 0);
+    $cantidad = (float) ($_POST["cantidad"] ?? 0);
     $monto = $_POST["monto"] ?? "";
 
     if (!$idProducto || $cantidad <= 0) {
@@ -92,7 +92,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 
     <div class="pd-row" style="margin-top:10px;">
         <div class="pd-field" style="flex:1;"><label>Producto seleccionado</label><input type="text" id="nombre_producto" readonly></div>
-        <div class="pd-field chico"><label>Cantidad</label><input type="number" name="cantidad" id="cantidad" min="1" value="1" oninput="calcularMonto()" required></div>
+        <div class="pd-field chico"><label>Cantidad</label><input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" value="1" oninput="calcularMonto()" required></div>
         <div class="pd-field"><label>Monto total</label><input type="number" step="0.01" name="monto" id="monto" required></div>
     </div>
 
@@ -150,7 +150,7 @@ function seleccionarProducto(p) {
 }
 
 function calcularMonto() {
-    const cantidad = parseInt(document.getElementById("cantidad").value) || 0;
+    const cantidad = parseFloat(document.getElementById("cantidad").value) || 0;
     if (precioSeleccionado > 0) {
         document.getElementById("monto").value = (precioSeleccionado * cantidad).toFixed(2);
     }

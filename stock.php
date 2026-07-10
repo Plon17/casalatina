@@ -96,7 +96,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 <tr class="<?php echo ($p["cantidad_pro"] <= 5) ? "fila-bajo" : ""; ?>">
     <td><?php echo htmlspecialchars($p["ID_Producto"]); ?></td>
     <td><?php echo htmlspecialchars($p["nombre_pro"]); ?></td>
-    <td><?php echo htmlspecialchars($p["cantidad_pro"]); ?><?php if ($p["cantidad_pro"] <= 5): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
+    <td><?php echo number_format((float) $p["cantidad_pro"], 2); ?><?php if ($p["cantidad_pro"] <= 5): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
     <td><?php echo number_format((float) $p["precio_pro"], 2); ?></td>
     <td><?php echo htmlspecialchars($p["categoria_pro"]); ?></td>
     <td>
@@ -128,7 +128,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field chico">
             <label>Cantidad</label>
-            <input type="number" name="cantidad" id="cantidad" required>
+            <input type="number" step="0.01" name="cantidad" id="cantidad" required>
         </div>
         <div class="pd-field chico">
             <label>Precio</label>
