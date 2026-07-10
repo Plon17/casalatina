@@ -67,7 +67,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 <?php foreach ($items as $it): ?>
 <tr>
     <td><?php echo htmlspecialchars($it["ID_Menu"]); ?></td>
-    <td><?php echo htmlspecialchars($it["nombre"]); ?></td>
+    <td><?php echo htmlspecialchars($it["Nombre"]); ?></td>
     <td><?php echo htmlspecialchars($it["precio"]); ?></td>
     <td><?php echo htmlspecialchars($it["tipo"]); ?></td>
     <td><?php echo htmlspecialchars($it["descripcion_men"]); ?></td>
