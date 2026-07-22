@@ -1,0 +1,430 @@
+body {
+    background: linear-gradient(135deg, #bc9f80 0%, #ffb347 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    color: #111;
+    min-height: 100vh;
+}
+
+.topbar {
+    background: rgba(0,0,0,0.92);
+    color: #fff;
+    padding: 18px 22px;
+    text-align: center;
+    font-weight: 800;
+    font-size: 20px;
+    position: relative;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+}
+
+.topbar a.volver {
+    position: absolute;
+    left: 18px;
+    top: 16px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    border: 1px solid rgba(255,255,255,0.7);
+    padding: 6px 12px;
+    border-radius: 999px;
+    transition: all 0.2s ease;
+}
+
+.topbar a.volver:hover {
+    background: #fff;
+    color: #000;
+}
+
+.container {
+    padding: 35px 30px 50px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 100px);
+    padding: 40px 20px;
+}
+
+h1, h2, h3 {
+    color: #111;
+}
+
+.titulo-modulo {
+    text-align: center;
+    font-weight: 900;
+    font-size: 28px;
+    margin: 20px 0 28px;
+    letter-spacing: 0.03em;
+}
+
+.caja-blanca {
+    background: rgba(255,255,255,0.98);
+    border: 1px solid rgba(0,0,0,0.08);
+    padding: 28px;
+    border-radius: 28px;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.08);
+    margin-bottom: 28px;
+}
+
+form .fila {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 12px 18px;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+form .fila:nth-child(odd) {
+    margin-bottom: 18px;
+}
+
+form .fila.full {
+    grid-template-columns: 1fr;
+}
+
+form .fila label {
+    margin-bottom: 0;
+    font-weight: 700;
+    color: #333;
+}
+
+input[type=text],
+input[type=number],
+input[type=date],
+input[type=password],
+select,
+textarea {
+    padding: 12px 14px;
+    border: 1px solid #d3d3d3;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-size: 15px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type=text]:focus,
+input[type=number]:focus,
+input[type=date]:focus,
+input[type=password]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: #f0a540;
+    box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.18);
+}
+
+button, .btn {
+    background: #ffb347;
+    border: 1px solid #d46c00;
+    padding: 14px 24px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 700;
+    color: #111;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+    min-height: 46px;
+}
+
+button:hover, .btn:hover {
+    background: #ffc76b;
+    transform: translateY(-1px);
+}
+
+.botones-grupo {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    border-radius: 18px;
+    overflow: hidden;
+}
+
+table th, table td {
+    border-bottom: 1px solid #eee;
+    padding: 14px 16px;
+    font-size: 14px;
+    text-align: left;
+}
+
+table th {
+    background: #faf5f0;
+    font-weight: 700;
+}
+
+table tr:hover {
+    background: #fff5e8;
+}
+
+.mensaje-error,
+.mensaje-ok {
+    padding: 14px 18px;
+    border-radius: 14px;
+    margin-top: 12px;
+    display: inline-block;
+}
+
+.mensaje-error {
+    background: rgba(192,57,43,0.1);
+    color: #c0392b;
+}
+
+.mensaje-ok {
+    background: rgba(30,107,30,0.1);
+    color: #1e6b1e;
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 62px;
+    margin-top: 0px;
+    padding: 0 20px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    width: 100%;
+}
+
+.menu-item .icono {
+    font-size: 50px;
+}
+
+.menu-item a.btn {
+    flex: 1;
+    text-align: center;
+}
+
+@media (max-width: 880px) {
+    .container {
+        padding: 25px 18px 35px;
+    }
+
+    form .fila {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .topbar a.volver {
+        left: 12px;
+    }
+}
+
+input[type=text],
+input[type=number],
+input[type=date],
+input[type=password],
+select,
+textarea {
+    padding: 10px;
+    border: 1px solid #999;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 350px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 8px;
+    color: #111;
+}
+
+button, .btn {
+    background: #ED8E8E;
+    border: 1px solid #d46c00;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #000;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.2s ease;
+}
+
+button:hover, .btn:hover {
+    background: #ffc76b;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 12px 14px;
+    font-size: 14px;
+    text-align: left;
+}
+
+table th {
+    background: #f5f5f5;
+}
+
+.caja-blanca {
+    background: #fff;
+    border: 1px solid #ddd;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    overflow-y: auto;
+}
+
+.logo-box {
+    background: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    text-align: center;
+    width: auto;
+    margin: 0 auto 20px auto;
+}
+
+.login-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    min-width: 350px;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    color: #111;
+    font-size: 24px;
+}
+
+.login-box form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-box form label {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.login-box form input {
+    width: 100%;
+    max-width: 100%;
+}
+
+.login-box form button {
+    width: 100%;
+}
+
+.login-box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    min-width: 350px;
+}
+
+.login-box h2 {
+    margin-top: 0;
+    color: #111;
+    font-size: 24px;
+}
+
+.login-box form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-box form label {
+    text-align: left;
+    margin-bottom: 0;
+}
+
+.login-box form input {
+    width: 100%;
+    max-width: 100%;
+}
+
+.login-box form button {
+    width: 100%;
+}
+
+.logo-box .marca {
+    font-weight: bold;
+    color: #d4711f;
+    font-size: 30px;
+    border: 3px solid #d4711f;
+    border-radius: 50%;
+    padding: 20px 18px;
+    display: inline-block;
+}
+
+.fila {
+    margin-bottom: 16px;
+}
+
+.mensaje-error {
+    color: #c0392b;
+    font-weight: bold;
+}
+
+.mensaje-ok {
+    color: #1e6b1e;
+    font-weight: bold;
+}
+
+.menu-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px 40    0px;
+    margin-top: 40px;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 300px;
+}
+
+.menu-item .icono {
+    font-size: 50px;
+}
+
+.menu-item a.btn {
+    flex: 1;
+    text-align: center;
+}
+
+.bienvenida {
+    text-align: center;
+    font-weight: bold;
+    font-size: 20px;
+    margin-top: 20px;
+}
