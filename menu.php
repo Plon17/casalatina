@@ -49,10 +49,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 
     if ($_POST["accion"] === "eliminar") {
-        // menu_ingredientes tiene ON DELETE CASCADE, así que su receta se borra sola
-        $stmt = $pdo->prepare("DELETE FROM menu WHERE ID_Menu=?");
-        $stmt->execute([$_POST["id_menu"]]);
-        $mensaje = "Item eliminado.";
+        // menu_ingredientes tiene ON DELETE CASCADE, pero pedido_detalle NO
+        // (con razón: no queremos que un pedido viejo pierda su referencia).
+        // Si el plato ya se usó en algún pedido, lo desactivamos en vez de borrarlo.
+        try {
+            $stmt = $pdo->prepare("DELETE FROM menu WHERE ID_Menu=?");
+            $stmt->execute([$_POST["id_menu"]]);
+            $mensaje = "Item eliminado.";
+        } catch (PDOException $e) {
+            if ($e->getCode() === "23000") {
+                $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
+                $mensaje = "Este plato ya se usó en algún pedido, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
+            } else {
+                $error = "Error al eliminar: " . $e->getMessage();
+            }
+        }
+    }
+
+    if ($_POST["accion"] === "reactivar") {
+        $pdo->prepare("UPDATE menu SET activo = 1 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
+        $mensaje = "Item reactivado.";
     }
 }
 
@@ -114,12 +130,12 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Receta</th><th></th></tr>
+<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Receta</th><th>Estado</th><th></th></tr>
 <?php if (count($items) === 0): ?>
-<tr><td colspan="7">No se encontraron items.</td></tr>
+<tr><td colspan="8">No se encontraron items.</td></tr>
 <?php endif; ?>
 <?php foreach ($items as $it): ?>
-<tr>
+<tr<?php echo !$it["activo"] ? ' style="opacity:.55;"' : ''; ?>>
     <td><?php echo htmlspecialchars($it["ID_Menu"]); ?></td>
     <td><?php echo htmlspecialchars($it["nombre"]); ?></td>
     <td><?php echo number_format((float) $it["precio"], 2); ?></td>
@@ -137,13 +153,22 @@ require_once __DIR__ . "/includes/layout_top.php";
             <span class="receta-vacia">sin receta</span>
         <?php endif; ?>
     </td>
+    <td><?php echo $it["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item? También se borra su receta.');">
+        <?php if ($it["activo"]): ?>
+        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
             <button type="submit">ELIMINAR</button>
         </form>
+        <?php else: ?>
+        <form method="POST" style="display:inline">
+            <input type="hidden" name="accion" value="reactivar">
+            <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
+            <button type="submit">REACTIVAR</button>
+        </form>
+        <?php endif; ?>
     </td>
 </tr>
 <?php endforeach; ?>
