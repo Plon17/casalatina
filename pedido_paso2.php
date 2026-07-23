@@ -11,6 +11,12 @@ if (!$idPedido) {
     exit;
 }
 
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
+    $pdo->prepare("UPDATE pedido SET estado='Cancelado' WHERE ID_Pedido=? AND estado='Abierto'")->execute([$idPedido]);
+    header("Location: pedidos_listado.php");
+    exit;
+}
+
 // Actualiza el detalle (pudo cambiar en pantalla) y envía el pedido a cocina
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "enviar_cocina") {
     $items = json_decode($_POST["detalle_json"] ?? "", true);
@@ -115,6 +121,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 2 de 3 — Revisar y enviar a cocina</p>
+<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Tipo: <?php echo htmlspecialchars($pedido["tipo_ped"]); ?></p>
@@ -136,8 +143,14 @@ require_once __DIR__ . "/includes/layout_top.php";
     <div class="pd-actions">
         <button type="button" onclick="volverPaso1()">← Volver (agregar más productos)</button>
         <button type="button" onclick="enviarCocina()">Enviar a Cocina →</button>
+        <button type="button" onclick="cancelarPedido()" style="background:#c0392b; color:#fff;">Cancelar este pedido</button>
     </div>
 </div>
+
+<form method="POST" id="formCancelar" style="display:none;">
+    <input type="hidden" name="accion" value="cancelar_pedido">
+    <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
+</form>
 
 <form method="POST" id="formEnviar" style="display:none;">
     <input type="hidden" name="accion" value="enviar_cocina">
@@ -198,6 +211,12 @@ function enviarCocina() {
     document.getElementById("f_total").value = document.getElementById("total").value;
     document.getElementById("f_detalle_json").value = JSON.stringify(itemsPedido);
     document.getElementById("formEnviar").submit();
+}
+
+function cancelarPedido() {
+    if (confirm("¿Seguro que deseas cancelar este pedido? La mesa quedará libre otra vez.")) {
+        document.getElementById("formCancelar").submit();
+    }
 }
 
 renderTablaPedido();
