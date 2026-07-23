@@ -52,9 +52,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                 $stmtRecetas->execute([$_POST["id_producto"]]);
                 $platos = array_column($stmtRecetas->fetchAll(PDO::FETCH_ASSOC), "nombre");
 
-                $mensaje = "Este producto ya se usó en compras o recetas, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece para comprar más ni para armar recetas nuevas.";
+                $mensaje = "Producto desactivado.";
                 if ($platos) {
-                    $mensaje .= " Ojo: todavía lo usan estos platos activos: " . implode(", ", $platos) . ". Sus recetas lo van a seguir consumiendo normalmente; edítalas si ya no corresponde.";
+                    $mensaje .= " CUIDADO: todavía lo usan estos platos activos: " . implode(", ", $platos) . ". Sus recetas lo van a seguir consumiendo normalmente; edítalas si ya no corresponde.";
                 }
             } else {
                 $error = "Error al eliminar: " . $e->getMessage();
@@ -136,7 +136,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este producto?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">
