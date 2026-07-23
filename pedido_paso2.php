@@ -11,6 +11,12 @@ if (!$idPedido) {
     exit;
 }
 
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
+    $pdo->prepare("UPDATE pedido SET estado='Cancelado' WHERE ID_Pedido=? AND estado='Abierto'")->execute([$idPedido]);
+    header("Location: pedidos_listado.php");
+    exit;
+}
+
 // Actualiza el detalle (pudo cambiar en pantalla) y envía el pedido a cocina
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "enviar_cocina") {
     $items = json_decode($_POST["detalle_json"] ?? "", true);
@@ -29,6 +35,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "envia
                 $idDet = "D" . str_pad($d, 6, "0", STR_PAD_LEFT);
                 $stmtDet->execute([$idDet, $idPedido, $it["id_menu"], $it["cantidad"], $it["precio"]]);
                 $d++;
+            }
+
+            // Calculamos cuánto insumo se necesita en total según la receta de cada plato pedido
+            $necesario = [];
+            $stmtIng = $pdo->prepare("SELECT ID_Producto, cantidad_necesaria FROM menu_ingredientes WHERE ID_Menu = ?");
+            foreach ($items as $it) {
+                $stmtIng->execute([$it["id_menu"]]);
+                foreach ($stmtIng->fetchAll(PDO::FETCH_ASSOC) as $ing) {
+                    $necesario[$ing["ID_Producto"]] = ($necesario[$ing["ID_Producto"]] ?? 0)
+                        + ($ing["cantidad_necesaria"] * $it["cantidad"]);
+                }
+            }
+
+            // Verificamos que haya suficiente stock antes de descontar nada
+            if ($necesario) {
+                $faltantes = [];
+                $stmtStock = $pdo->prepare("SELECT nombre_pro, cantidad_pro FROM producto WHERE ID_Producto = ?");
+                foreach ($necesario as $idProd => $cantNecesaria) {
+                    $stmtStock->execute([$idProd]);
+                    $prod = $stmtStock->fetch(PDO::FETCH_ASSOC);
+                    if (!$prod || $prod["cantidad_pro"] < $cantNecesaria) {
+                        $disponible = $prod["cantidad_pro"] ?? 0;
+                        $faltantes[] = ($prod["nombre_pro"] ?? $idProd) . " (disponible: $disponible, necesario: $cantNecesaria)";
+                    }
+                }
+                if ($faltantes) {
+                    throw new Exception("Stock insuficiente para: " . implode(", ", $faltantes));
+                }
+
+                $stmtDescontar = $pdo->prepare("UPDATE producto SET cantidad_pro = cantidad_pro - ? WHERE ID_Producto = ?");
+                foreach ($necesario as $idProd => $cantNecesaria) {
+                    $stmtDescontar->execute([$cantNecesaria, $idProd]);
+                }
             }
 
             $stmt = $pdo->prepare("UPDATE pedido SET subtotal=?, impuesto=?, total=?, estado='EnCocina' WHERE ID_Pedido=?");
@@ -82,6 +121,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 2 de 3 — Revisar y enviar a cocina</p>
+<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Tipo: <?php echo htmlspecialchars($pedido["tipo_ped"]); ?></p>
@@ -103,8 +143,14 @@ require_once __DIR__ . "/includes/layout_top.php";
     <div class="pd-actions">
         <button type="button" onclick="volverPaso1()">← Volver (agregar más productos)</button>
         <button type="button" onclick="enviarCocina()">Enviar a Cocina →</button>
+        <button type="button" onclick="cancelarPedido()" style="background:#c0392b; color:#fff;">Cancelar este pedido</button>
     </div>
 </div>
+
+<form method="POST" id="formCancelar" style="display:none;">
+    <input type="hidden" name="accion" value="cancelar_pedido">
+    <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
+</form>
 
 <form method="POST" id="formEnviar" style="display:none;">
     <input type="hidden" name="accion" value="enviar_cocina">
@@ -165,6 +211,12 @@ function enviarCocina() {
     document.getElementById("f_total").value = document.getElementById("total").value;
     document.getElementById("f_detalle_json").value = JSON.stringify(itemsPedido);
     document.getElementById("formEnviar").submit();
+}
+
+function cancelarPedido() {
+    if (confirm("¿Seguro que deseas cancelar este pedido? La mesa quedará libre otra vez.")) {
+        document.getElementById("formCancelar").submit();
+    }
 }
 
 renderTablaPedido();

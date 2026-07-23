@@ -13,9 +13,6 @@ $idEditar = $_GET["id"] ?? null;
 $pedidoExistente = null;
 $itemsExistentes = [];
 
-// Si viene ?mesa=N desde el grid de mesas (solo aplica al crear un pedido nuevo)
-$mesaPrefill = $_GET["mesa"] ?? null;
-
 if ($idEditar) {
     $stmt = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ? AND estado = 'Abierto'");
     $stmt->execute([$idEditar]);
@@ -30,6 +27,15 @@ if ($idEditar) {
     } else {
         $idEditar = null; // no existe o ya no está "Abierto"
     }
+}
+
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
+    $idCancelar = $_POST["id_pedido_existente"] ?? "";
+    if ($idCancelar) {
+        $pdo->prepare("UPDATE pedido SET estado='Cancelado' WHERE ID_Pedido=? AND estado='Abierto'")->execute([$idCancelar]);
+    }
+    header("Location: pedidos_listado.php");
+    exit;
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guardar_paso1") {
@@ -100,7 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
     }
 }
 
-$menu = $pdo->query("SELECT ID_Menu, nombre, precio, descripcion_men FROM menu")->fetchAll(PDO::FETCH_ASSOC);
+$menu = $pdo->query("SELECT ID_Menu, nombre, precio, descripcion_men FROM menu WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "PEDIDO - PASO 1: MESA Y PRODUCTOS";
 require_once __DIR__ . "/includes/layout_top.php";
@@ -121,6 +127,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 1 de 3 — Seleccionar mesa y agregar productos</p>
+<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
 
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 <?php if ($idEditar): ?><p>Editando pedido <strong><?php echo htmlspecialchars($idEditar); ?></strong> (aún no enviado a cocina).</p><?php endif; ?>
@@ -181,7 +188,15 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-actions">
     <button type="button" onclick="continuarPaso2()">Continuar a Revisión →</button>
+    <?php if ($idEditar): ?>
+    <button type="button" onclick="cancelarPedido()" style="background:#c0392b; color:#fff;">Cancelar este pedido</button>
+    <?php endif; ?>
 </div>
+
+<form method="POST" id="formCancelar" style="display:none;">
+    <input type="hidden" name="accion" value="cancelar_pedido">
+    <input type="hidden" name="id_pedido_existente" value="<?php echo htmlspecialchars($idEditar ?? ""); ?>">
+</form>
 
 <form method="POST" id="formGuardar" style="display:none;">
     <input type="hidden" name="accion" value="guardar_paso1">
@@ -274,6 +289,12 @@ function continuarPaso2() {
     document.getElementById("f_tipo_ped").value = tipoPed;
     document.getElementById("f_detalle_json").value = JSON.stringify(itemsPedido);
     document.getElementById("formGuardar").submit();
+}
+
+function cancelarPedido() {
+    if (confirm("¿Seguro que deseas cancelar este pedido? La mesa quedará libre otra vez.")) {
+        document.getElementById("formCancelar").submit();
+    }
 }
 
 toggleMesa();

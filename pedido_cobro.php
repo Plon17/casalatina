@@ -71,6 +71,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 3 de 3 — Cobro</p>
+<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Estado: <?php echo htmlspecialchars($pedido["estado"]); ?></p>

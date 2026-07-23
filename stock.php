@@ -33,9 +33,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 
     if ($_POST["accion"] === "eliminar") {
-        $stmt = $pdo->prepare("DELETE FROM producto WHERE ID_Producto=?");
-        $stmt->execute([$_POST["id_producto"]]);
-        $mensaje = "Producto eliminado.";
+        // compras y menu_ingredientes referencian producto (con razón: no queremos
+        // perder el historial de compras ni romper recetas ya guardadas).
+        // Si el insumo ya se usó en algo, lo desactivamos en vez de borrarlo.
+        try {
+            $stmt = $pdo->prepare("DELETE FROM producto WHERE ID_Producto=?");
+            $stmt->execute([$_POST["id_producto"]]);
+            $mensaje = "Producto eliminado.";
+        } catch (PDOException $e) {
+            if ($e->getCode() === "23000") {
+                $pdo->prepare("UPDATE producto SET activo = 0 WHERE ID_Producto=?")->execute([$_POST["id_producto"]]);
+
+                // Avisamos si algún plato ACTIVO todavía tiene este insumo en su receta,
+                // para que decidas si hace falta actualizar esa receta.
+                $stmtRecetas = $pdo->prepare("SELECT m.nombre FROM menu_ingredientes mi
+                                               JOIN menu m ON m.ID_Menu = mi.ID_Menu
+                                               WHERE mi.ID_Producto = ? AND m.activo = 1");
+                $stmtRecetas->execute([$_POST["id_producto"]]);
+                $platos = array_column($stmtRecetas->fetchAll(PDO::FETCH_ASSOC), "nombre");
+
+                $mensaje = "Producto desactivado.";
+                if ($platos) {
+                    $mensaje .= " CUIDADO: todavía lo usan estos platos activos: " . implode(", ", $platos) . ". Sus recetas lo van a seguir consumiendo normalmente; edítalas si ya no corresponde.";
+                }
+            } else {
+                $error = "Error al eliminar: " . $e->getMessage();
+            }
+        }
+    }
+
+    if ($_POST["accion"] === "reactivar") {
+        $pdo->prepare("UPDATE producto SET activo = 1 WHERE ID_Producto=?")->execute([$_POST["id_producto"]]);
+        $mensaje = "Producto reactivado.";
     }
 }
 
@@ -49,7 +78,8 @@ if ($buscar !== "") {
 $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Productos con cantidad baja (para el listado de "compras a realizar")
-$bajos = $pdo->query("SELECT * FROM producto WHERE cantidad_pro <= 5")->fetchAll(PDO::FETCH_ASSOC);
+// Los inactivos no entran aquí: ya no se van a comprar más.
+$bajos = $pdo->query("SELECT * FROM producto WHERE cantidad_pro <= 5 AND activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -88,24 +118,33 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th></th></tr>
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Estado</th><th></th></tr>
 <?php if (count($productos) === 0): ?>
-<tr><td colspan="6">No se encontraron productos.</td></tr>
+<tr><td colspan="7">No se encontraron productos.</td></tr>
 <?php endif; ?>
 <?php foreach ($productos as $p): ?>
-<tr class="<?php echo ($p["cantidad_pro"] <= 5) ? "fila-bajo" : ""; ?>">
+<tr class="<?php echo ($p["cantidad_pro"] <= 5 && $p["activo"]) ? "fila-bajo" : ""; ?>"<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
     <td><?php echo htmlspecialchars($p["ID_Producto"]); ?></td>
     <td><?php echo htmlspecialchars($p["nombre_pro"]); ?></td>
-    <td><?php echo htmlspecialchars($p["cantidad_pro"]); ?><?php if ($p["cantidad_pro"] <= 5): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
+    <td><?php echo number_format((float) $p["cantidad_pro"], 2); ?><?php if ($p["cantidad_pro"] <= 5 && $p["activo"]): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
     <td><?php echo number_format((float) $p["precio_pro"], 2); ?></td>
     <td><?php echo htmlspecialchars($p["categoria_pro"]); ?></td>
+    <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
+        <?php if ($p["activo"]): ?>
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este producto?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
+        <?php else: ?>
+        <form method="POST" style="display:inline">
+            <input type="hidden" name="accion" value="reactivar">
+            <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
+            <button type="submit">REACTIVAR</button>
+        </form>
+        <?php endif; ?>
     </td>
 </tr>
 <?php endforeach; ?>
@@ -128,7 +167,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field chico">
             <label>Cantidad</label>
-            <input type="number" name="cantidad" id="cantidad" required>
+            <input type="number" step="0.01" name="cantidad" id="cantidad" required>
         </div>
         <div class="pd-field chico">
             <label>Precio</label>
