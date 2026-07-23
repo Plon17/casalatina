@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
     }
 }
 
-$productos = $pdo->query("SELECT ID_Producto, nombre_pro, precio_pro, cantidad_pro FROM producto")->fetchAll(PDO::FETCH_ASSOC);
+$productos = $pdo->query("SELECT ID_Producto, nombre_pro, precio_pro, cantidad_pro FROM producto WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $compras = $pdo->query("SELECT c.*, p.nombre_pro
                          FROM compras c

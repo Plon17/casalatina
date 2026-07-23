@@ -91,8 +91,9 @@ foreach ($items as &$it) {
 }
 unset($it);
 
-// Productos de stock disponibles para armar recetas
-$productos = $pdo->query("SELECT ID_Producto, nombre_pro, cantidad_pro FROM producto")->fetchAll(PDO::FETCH_ASSOC);
+// Productos de stock disponibles para armar recetas (solo activos: no tiene sentido
+// armar una receta nueva con un insumo que ya no se compra)
+$productos = $pdo->query("SELECT ID_Producto, nombre_pro, cantidad_pro FROM producto WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "MENÚ";
 require_once __DIR__ . "/includes/layout_top.php";
