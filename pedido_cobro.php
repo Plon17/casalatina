@@ -93,69 +93,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field label{font-size:13px;color:#444;}
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:120px;}
 .pd-actions{margin-top:16px;display:flex;gap:10px;}
-
-/* Recibo: oculto en pantalla, solo aparece al imprimir */
-.recibo-print{display:none;}
-
-@media print {
-    body * { visibility: hidden; }
-    .recibo-print, .recibo-print * { visibility: visible; }
-    .recibo-print {
-        display: block;
-        position: absolute;
-        top: 0; left: 0;
-        width: 300px;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        color: #000;
-    }
-    .recibo-print .recibo-linea{ border-top: 1px dashed #000; margin: 6px 0; }
-    .recibo-print .recibo-centro{ text-align: center; }
-    .recibo-print .recibo-fila{ display: flex; justify-content: space-between; }
-    .recibo-print table{ width: 100%; border-collapse: collapse; margin: 4px 0; }
-    .recibo-print td{ padding: 1px 0; vertical-align: top; }
-    .recibo-print .recibo-total{ font-weight: bold; font-size: 13px; }
-    @page { margin: 8mm; }
-}
 </style>
-
-<!-- Recibo imprimible: solo visible con Ctrl+P / botón Imprimir (ver CSS @media print arriba) -->
-<div class="recibo-print">
-    <p class="recibo-centro" style="font-weight:bold; font-size:15px; margin:0;">CASA LATINA</p>
-    <p class="recibo-centro" style="margin:2px 0;">Comida típica hondureña</p>
-    <p class="recibo-centro" style="margin:0;">Tel: 0000-0000</p>
-    <div class="recibo-linea"></div>
-
-    <div class="recibo-fila"><span>Pedido:</span><span><?php echo htmlspecialchars($idPedido); ?></span></div>
-    <div class="recibo-fila"><span>Fecha:</span><span><?php echo htmlspecialchars($pedido["fecha"]); ?></span></div>
-    <div class="recibo-fila"><span>Tipo:</span><span><?php echo htmlspecialchars($pedido["tipo_ped"]); ?><?php echo $pedido["num_mesa"] ? " (Mesa " . htmlspecialchars($pedido["num_mesa"]) . ")" : ""; ?></span></div>
-    <div class="recibo-fila"><span>Cajero:</span><span><?php echo htmlspecialchars($pedido["cod_empleado"] ?? ''); ?></span></div>
-    <div class="recibo-linea"></div>
-
-    <table>
-        <?php foreach ($detalle as $d): ?>
-        <tr>
-            <td colspan="2"><?php echo htmlspecialchars($d["cantidad"] . "x " . $d["nombre"]); ?></td>
-        </tr>
-        <tr>
-            <td style="color:#555;">&nbsp;&nbsp;@ <?php echo number_format((float) $d["precio"], 2); ?></td>
-            <td style="text-align:right;"><?php echo number_format((float) $d["precio"] * $d["cantidad"], 2); ?></td>
-        </tr>
-        <?php endforeach; ?>
-    </table>
-    <div class="recibo-linea"></div>
-
-    <div class="recibo-fila"><span>Subtotal:</span><span>L. <?php echo number_format((float) $pedido["subtotal"], 2); ?></span></div>
-    <div class="recibo-fila"><span>Impuesto (15%):</span><span>L. <?php echo number_format((float) $pedido["impuesto"], 2); ?></span></div>
-    <div class="recibo-fila recibo-total"><span>TOTAL:</span><span>L. <?php echo number_format((float) $pedido["total"], 2); ?></span></div>
-    <div class="recibo-linea"></div>
-
-    <div class="recibo-fila"><span>Recibido:</span><span>L. <?php echo number_format((float) ($pedido["monto_recibido"] ?? 0), 2); ?></span></div>
-    <div class="recibo-fila"><span>Cambio:</span><span>L. <?php echo number_format((float) ($pedido["cambio"] ?? 0), 2); ?></span></div>
-    <div class="recibo-linea"></div>
-
-    <p class="recibo-centro" style="margin-top:10px;">¡Gracias por su visita!</p>
-</div>
 
 <p class="titulo-modulo">Paso 3 de 3 — Cobro</p>
 <p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
@@ -195,7 +133,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <div class="pd-field"><label>Impuesto (15%)</label><input type="text" value="<?php echo htmlspecialchars($pedido['impuesto']); ?>" readonly></div>
         <div class="pd-field"><label>Total</label><input type="text" id="total" value="<?php echo htmlspecialchars($pedido['total']); ?>" readonly></div>
         <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
-        <div class="pd-field"><label>Nombre del Cliente</label><input type="text" name="nombre_cliente" placeholder="Consumidor Final"></div>
+        <div class="pd-field"><label>Nombre del Cliente (opcional)</label><input type="text" name="nombre_cliente" placeholder="Consumidor Final"></div>
         <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" onkeyup="calcularCambio()" required></div>
         <div class="pd-field"><label>Cambio</label><input type="text" id="cambio" name="cambio" readonly></div>
     </div>
@@ -231,7 +169,7 @@ function calcularCambioValido() {
 
 <p>Este pedido ya fue cobrado. Monto recibido: <?php echo htmlspecialchars($pedido["monto_recibido"]); ?>,
    Cambio: <?php echo htmlspecialchars($pedido["cambio"]); ?></p>
-<button type="button" onclick="window.print()">Imprimir recibo</button>
+<button type="button" onclick="window.open('recibo_pdf.php?id=<?php echo urlencode($idPedido); ?>', '_blank')">Imprimir recibo</button>
 
 <?php else: ?>
 
