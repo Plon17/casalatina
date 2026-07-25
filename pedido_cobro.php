@@ -14,14 +14,39 @@ if (!$idPedido) {
 
 // Cobrar: solo permitido si el pedido está en estado "EnCocina"
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobrar") {
-    $stmt = $pdo->prepare("UPDATE pedido SET monto_recibido=?, cambio=?, cod_empleado=?, estado='Pagado'
-                            WHERE ID_Pedido=? AND estado='EnCocina'");
-    $stmt->execute([$_POST["monto_recibido"], $_POST["cambio"], $_POST["cajero"], $idPedido]);
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("UPDATE pedido SET monto_recibido=?, cambio=?, cod_empleado=?, estado='Pagado'
+                                WHERE ID_Pedido=? AND estado='EnCocina'");
+        $stmt->execute([$_POST["monto_recibido"], $_POST["cambio"], $_POST["cajero"], $idPedido]);
 
-    if ($stmt->rowCount() === 0) {
-        $error = "Este pedido ya no está disponible para cobro (puede que ya haya sido cobrado o cancelado).";
-    } else {
-        $mensaje = "Pedido #" . htmlspecialchars($idPedido) . " cobrado correctamente.";
+        if ($stmt->rowCount() === 0) {
+            $pdo->rollBack();
+            $error = "Este pedido ya no está disponible para cobro (puede que ya haya sido cobrado o cancelado).";
+        } else {
+            // Generamos la factura automáticamente, para no depender de que alguien
+            // la escriba a mano después (y para que nunca falte ni se duplique).
+            $pedidoActual = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ?");
+            $pedidoActual->execute([$idPedido]);
+            $pedidoActual = $pedidoActual->fetch(PDO::FETCH_ASSOC);
+
+            $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM factura")->fetch()["c"] + 1;
+            $idFactura = "F" . str_pad($n, 6, "0", STR_PAD_LEFT);
+            $nombreCliente = trim($_POST["nombre_cliente"] ?? "") ?: "Consumidor Final";
+
+            $stmtFac = $pdo->prepare("INSERT INTO factura (ID_Factura, nombre_cliente, cod_empleado, ID_Pedido, fecha_fac, impuesto, total)
+                                       VALUES (?,?,?,?,?,?,?)");
+            $stmtFac->execute([
+                $idFactura, $nombreCliente, $_POST["cajero"], $idPedido,
+                date("Y-m-d"), $pedidoActual["impuesto"], $pedidoActual["total"]
+            ]);
+
+            $pdo->commit();
+            $mensaje = "Pedido #" . htmlspecialchars($idPedido) . " cobrado correctamente. Factura $idFactura generada.";
+        }
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $error = "Error al cobrar el pedido: " . $e->getMessage();
     }
 }
 
@@ -108,6 +133,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <div class="pd-field"><label>Impuesto (15%)</label><input type="text" value="<?php echo htmlspecialchars($pedido['impuesto']); ?>" readonly></div>
         <div class="pd-field"><label>Total</label><input type="text" id="total" value="<?php echo htmlspecialchars($pedido['total']); ?>" readonly></div>
         <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
+        <div class="pd-field"><label>Nombre del Cliente (opcional)</label><input type="text" name="nombre_cliente" placeholder="Consumidor Final"></div>
         <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" onkeyup="calcularCambio()" required></div>
         <div class="pd-field"><label>Cambio</label><input type="text" id="cambio" name="cambio" readonly></div>
     </div>
@@ -143,7 +169,7 @@ function calcularCambioValido() {
 
 <p>Este pedido ya fue cobrado. Monto recibido: <?php echo htmlspecialchars($pedido["monto_recibido"]); ?>,
    Cambio: <?php echo htmlspecialchars($pedido["cambio"]); ?></p>
-<button type="button" onclick="window.print()">Imprimir recibo</button>
+<button type="button" onclick="window.open('recibo_pdf.php?id=<?php echo urlencode($idPedido); ?>', '_blank')">Imprimir recibo</button>
 
 <?php else: ?>
 
