@@ -9,7 +9,6 @@ $modulos = [
     "menu"      => ["📖", "MENU",            "menu.php"],
     "factura"   => ["🧾", "FACTURA",         "factura.php"],
     "compras"   => ["🛒", "COMPRAS",         "compras.php"],
-    "gasto_det" => ["💲", "DETALLE DE GASTO","detalle_gasto.php"],
     "prov"      => ["🚚", "PROVEEDORES",     "proveedores.php"],
     "pedido"    => ["🍳", "PEDIDO",          "pedido_paso1.php"],
     "stock"     => ["📋", "STOCK",           "stock.php"],
