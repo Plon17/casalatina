@@ -3,77 +3,73 @@ $modulo_actual = "reporte";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 
-$resultados = [];
-$tipo = $_POST["tipo"] ?? "";
-$fecha_inicio = $_POST["fecha_inicio"] ?? "";
-$fecha_final = $_POST["fecha_final"] ?? "";
-$consultado = false;
+$tipo = $_GET["tipo"] ?? "ventas";
+$fecha_inicio = $_GET["fecha_inicio"] ?? date("Y-m-01");
+$fecha_final = $_GET["fecha_final"] ?? date("Y-m-d");
 
-if ($_SERVER["REQUEST_METHOD"] === "POST" && $fecha_inicio && $fecha_final && $tipo) {
-    $consultado = true;
-
-    if ($tipo === "ventas") {
-        $stmt = $pdo->prepare("SELECT * FROM factura WHERE fecha_fac BETWEEN ? AND ? ORDER BY fecha_fac");
-        $stmt->execute([$fecha_inicio, $fecha_final]);
-    } elseif ($tipo === "gastos") {
-        $stmt = $pdo->prepare("SELECT * FROM gastos_detalles WHERE fecha BETWEEN ? AND ? ORDER BY fecha");
-        $stmt->execute([$fecha_inicio, $fecha_final]);
-    } else { // compras
-        $stmt = $pdo->prepare("SELECT * FROM compras WHERE fecha BETWEEN ? AND ? ORDER BY fecha");
-        $stmt->execute([$fecha_inicio, $fecha_final]);
-    }
-    $resultados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-$titulo_pagina = "REPORTE";
+$titulo_pagina = "REPORTES";
 require_once __DIR__ . "/includes/layout_top.php";
+
+$tiposReporte = [
+    "ventas"     => ["Ventas", "Ingresos por facturación en el período"],
+    "gastos"     => ["Gastos", "Gastos registrados, agrupados por categoría"],
+    "compras"    => ["Compras", "Compras hechas a proveedores"],
+    "resumen"    => ["Resumen Financiero", "Ventas vs. Gastos vs. Compras — utilidad del período"],
+    "top_platos" => ["Platos Más Vendidos", "Ranking de platos por cantidad e ingreso generado"],
+];
 ?>
 
-<p class="titulo-modulo">Reporte</p>
+<style>
+.pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
+.pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
+.pd-field{display:flex;flex-direction:column;gap:4px;}
+.pd-field label{font-size:13px;color:#444;}
+.pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:160px;}
 
-<form method="POST">
-    <div class="fila">
-        <label>Fecha Inicio:</label>
-        <input type="date" name="fecha_inicio" value="<?php echo htmlspecialchars($fecha_inicio); ?>" required>
-    </div>
-    <div class="fila">
-        <label>Fecha Final:</label>
-        <input type="date" name="fecha_final" value="<?php echo htmlspecialchars($fecha_final); ?>" required>
-    </div>
-    <div class="fila">
-        <label>Tipo:</label>
-        <select name="tipo" required>
-            <option value="ventas"  <?php echo $tipo === "ventas"  ? "selected" : ""; ?>>Ventas (Facturas)</option>
-            <option value="gastos"  <?php echo $tipo === "gastos"  ? "selected" : ""; ?>>Gastos</option>
-            <option value="compras" <?php echo $tipo === "compras" ? "selected" : ""; ?>>Compras</option>
-        </select>
+.tipos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:18px;}
+.tipo-opcion input{display:none;}
+.tipo-opcion label{
+    display:block;border:2px solid #ddd;border-radius:8px;padding:14px;cursor:pointer;
+    transition:border-color .12s, background .12s;
+}
+.tipo-opcion label strong{display:block;font-size:15px;color:#333;margin-bottom:4px;}
+.tipo-opcion label span{font-size:12px;color:#777;}
+.tipo-opcion input:checked + label{border-color:#C0563A;background:#fdf1e6;}
+.tipo-opcion input:checked + label strong{color:#C0563A;}
+</style>
+
+<p class="titulo-modulo">Reportes</p>
+
+<form method="GET" action="reporte_pdf.php" target="_blank">
+    <div class="pd-card">
+        <h3 style="margin-top:0;">1. Elige el tipo de reporte</h3>
+        <div class="tipos-grid">
+        <?php foreach ($tiposReporte as $clave => [$nombre, $desc]): ?>
+            <div class="tipo-opcion">
+                <input type="radio" name="tipo" id="tipo_<?php echo $clave; ?>" value="<?php echo $clave; ?>" <?php echo ($clave === $tipo) ? "checked" : ""; ?>>
+                <label for="tipo_<?php echo $clave; ?>">
+                    <strong><?php echo htmlspecialchars($nombre); ?></strong>
+                    <span><?php echo htmlspecialchars($desc); ?></span>
+                </label>
+            </div>
+        <?php endforeach; ?>
+        </div>
     </div>
 
-    <button type="submit">Ingresar</button>
+    <div class="pd-card">
+        <h3 style="margin-top:0;">2. Elige el rango de fechas</h3>
+        <div class="pd-row">
+            <div class="pd-field">
+                <label>Desde</label>
+                <input type="date" name="fecha_inicio" value="<?php echo htmlspecialchars($fecha_inicio); ?>" required>
+            </div>
+            <div class="pd-field">
+                <label>Hasta</label>
+                <input type="date" name="fecha_final" value="<?php echo htmlspecialchars($fecha_final); ?>" required>
+            </div>
+            <button type="submit">Generar Reporte (PDF)</button>
+        </div>
+    </div>
 </form>
-
-<?php if ($consultado): ?>
-<h3>Resultados</h3>
-<div class="caja-blanca">
-<?php if (count($resultados) === 0): ?>
-    <p>No se encontraron registros en ese rango de fechas.</p>
-<?php else: ?>
-<table>
-<tr>
-<?php foreach (array_keys($resultados[0]) as $col): ?>
-    <th><?php echo htmlspecialchars($col); ?></th>
-<?php endforeach; ?>
-</tr>
-<?php foreach ($resultados as $fila): ?>
-<tr>
-<?php foreach ($fila as $valor): ?>
-    <td><?php echo htmlspecialchars($valor); ?></td>
-<?php endforeach; ?>
-</tr>
-<?php endforeach; ?>
-</table>
-<?php endif; ?>
-</div>
-<?php endif; ?>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>
