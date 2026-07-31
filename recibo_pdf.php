@@ -13,7 +13,10 @@ use Dompdf\Options;
 $idPedido = $_GET["id"] ?? "";
 if (!$idPedido) { die("Falta el número de pedido."); }
 
-$pedidoStmt = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ?");
+$pedidoStmt = $pdo->prepare("SELECT p.*, f.nombre_cliente, f.rtn_cliente
+                              FROM pedido p
+                              LEFT JOIN factura f ON f.ID_Pedido = p.ID_Pedido
+                              WHERE p.ID_Pedido = ?");
 $pedidoStmt->execute([$idPedido]);
 $pedido = $pedidoStmt->fetch(PDO::FETCH_ASSOC);
 if (!$pedido) { die("Pedido no encontrado."); }
@@ -61,6 +64,12 @@ ob_start();
       <td><strong>Tipo:</strong> <?php echo htmlspecialchars($pedido["tipo_ped"]); ?><?php echo $pedido["num_mesa"] ? " (Mesa " . htmlspecialchars($pedido["num_mesa"]) . ")" : ""; ?></td>
       <td><strong>Cajero:</strong> <?php echo htmlspecialchars($pedido["cod_empleado"] ?? ""); ?></td>
     </tr>
+    <?php if (!empty($pedido["nombre_cliente"])): ?>
+    <tr>
+      <td><strong>Cliente:</strong> <?php echo htmlspecialchars($pedido["nombre_cliente"]); ?></td>
+      <td><?php if (!empty($pedido["rtn_cliente"])): ?><strong>RTN:</strong> <?php echo htmlspecialchars($pedido["rtn_cliente"]); ?><?php endif; ?></td>
+    </tr>
+    <?php endif; ?>
   </table>
 
   <table class="items">
