@@ -3,6 +3,12 @@ $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 
+// El RTN hondureño son 13 o 14 dígitos (los guiones son solo de formato, no cuentan)
+function rtnValido(string $rtn): bool {
+    $limpio = str_replace(["-", " "], "", $rtn);
+    return ctype_digit($limpio) && strlen($limpio) >= 13 && strlen($limpio) <= 14;
+}
+
 $idPedido = $_GET["id"] ?? $_POST["id_pedido"] ?? "";
 $error = "";
 $mensaje = "";
@@ -25,6 +31,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
         if (!$pedidoActual) {
             $pdo->rollBack();
             $error = "Este pedido ya no está disponible para cobro (puede que ya haya sido cobrado o cancelado).";
+        } elseif (trim($_POST["rtn_cliente"] ?? "") !== "" && !rtnValido($_POST["rtn_cliente"])) {
+            $pdo->rollBack();
+            $error = "El RTN debe tener 13 o 14 dígitos (puedes escribirlo con o sin guiones). Corrígelo o déjalo en blanco.";
         } else {
             $subtotal = (float) $pedidoActual["subtotal"];
             $descuentoPct = max(0, min(100, (float) ($_POST["descuento_pct"] ?? 0)));
@@ -185,7 +194,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
         </div>
         <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
         <div class="pd-field"><label>Nombre del Cliente (opcional)</label><input type="text" name="nombre_cliente" placeholder="Consumidor Final"></div>
-        <div class="pd-field"><label>RTN del Cliente (opcional)</label><input type="text" name="rtn_cliente" placeholder="0801-1990-12345"></div>
+        <div class="pd-field"><label>RTN del Cliente (opcional)</label><input type="text" name="rtn_cliente" id="rtn_cliente" placeholder="0801-1990-123456" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9-]/g, '')"></div>
     </div>
 
     <div class="pd-row" id="filaEfectivo" style="margin-top:12px;">
@@ -210,7 +219,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
 <div class="pd-card">
 <h3 style="margin-top:0;">Dividir cuenta</h3>
 <div class="pd-row">
-    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()"></div>
+    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="2" id="personas" oninput="actualizarDivision()"></div>
 </div>
 <p id="divisionResultado" style="margin-top:10px;"></p>
 <button type="button" onclick="imprimirDivision()">Imprimir división</button>
@@ -252,6 +261,14 @@ function actualizarResumen() {
 }
 
 function validarAntesDeCobrar() {
+    const rtn = document.getElementById("rtn_cliente").value.trim();
+    if (rtn !== "") {
+        const soloDigitos = rtn.replace(/-/g, "");
+        if (!/^\d+$/.test(soloDigitos) || soloDigitos.length < 13 || soloDigitos.length > 14) {
+            alert("El RTN debe tener 13 o 14 dígitos (puedes usar guiones o no).");
+            return false;
+        }
+    }
     const esTarjeta = document.querySelector('input[name="metodo_pago"]:checked').value === "Tarjeta";
     if (esTarjeta) return true;
     const { total } = calcularTotales();
