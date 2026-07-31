@@ -65,13 +65,23 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <style>
 .dash-layout{display:flex; gap:20px; align-items:flex-start;}
-.dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px; max-height:520px; overflow-y:auto;}
+.dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px;
+    max-height:560px; display:flex; flex-direction:column;}
+.dash-sidebar-links{overflow-y:auto; flex:1;}
 .dash-sidebar .menu-item{margin-bottom:8px;}
 .dash-sidebar .btn{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:6px;
     background:#faf5ef; border:1px solid #eee; text-decoration:none; color:#3A2A20; font-weight:600; font-size:14px;}
 .dash-sidebar .btn:hover{background:#fdf1e6; border-color:#C0563A;}
 .dash-sidebar .icono{font-size:18px;}
 .dash-main{flex:1; min-width:0;}
+
+.sesion-card{border-top:1px solid #eee; margin-top:12px; padding-top:14px; text-align:center;}
+.sesion-avatar{width:44px; height:44px; border-radius:50%; background:#C0563A; color:#fff; font-weight:700; font-size:18px;
+    display:flex; align-items:center; justify-content:center; margin:0 auto 8px auto;}
+.sesion-usuario{font-weight:700; color:#3A2A20; font-size:14px;}
+.sesion-rol{display:inline-block; margin-top:3px; font-size:11px; color:#7a5230; background:#fdf1e6; padding:2px 10px; border-radius:10px;}
+.sesion-salir{display:block; margin-top:10px; font-size:13px; color:#c0392b; text-decoration:none; font-weight:600;}
+.sesion-salir:hover{text-decoration:underline;}
 
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
 .kpi-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:18px;}
@@ -105,6 +115,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 
     <!-- Sidebar de módulos -->
     <div class="dash-sidebar">
+        <div class="dash-sidebar-links">
         <?php foreach ($modulos as $clave => $info):
             if (!$es_admin && !in_array($clave, $modulos_empleado)) continue;
             [$icono, $texto, $archivo] = $info;
@@ -115,6 +126,14 @@ require_once __DIR__ . "/includes/layout_top.php";
             </a>
         </div>
         <?php endforeach; ?>
+        </div>
+
+        <div class="sesion-card">
+            <div class="sesion-avatar"><?php echo htmlspecialchars(strtoupper(substr($_SESSION["usuario"], 0, 1))); ?></div>
+            <div class="sesion-usuario"><?php echo htmlspecialchars($_SESSION["usuario"]); ?></div>
+            <span class="sesion-rol"><?php echo htmlspecialchars(ucfirst($_SESSION["rol"])); ?></span>
+            <a class="sesion-salir" href="logout.php">Cerrar sesión</a>
+        </div>
     </div>
 
     <!-- Dashboard -->
@@ -182,11 +201,5 @@ require_once __DIR__ . "/includes/layout_top.php";
 
     </div>
 </div>
-
-<p style="margin-top:24px;">
-    Sesión iniciada como: <b><?php echo htmlspecialchars($_SESSION["usuario"]); ?></b>
-    (<?php echo htmlspecialchars($_SESSION["rol"]); ?>)
-    &nbsp;|&nbsp; <a href="logout.php">Cerrar sesión</a>
-</p>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>
