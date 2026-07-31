@@ -16,6 +16,7 @@ $modulos = [
     "prov"    => ["🚚", "PROVEEDORES", "proveedores.php"],
     "gastos"  => ["💵", "GASTOS",      "gastos.php"],
     "reporte" => ["📊", "REPORTE",     "reportes.php"],
+    "usuarios"=> ["👤", "USUARIOS",    "usuarios.php"],
 ];
 
 // Los que puede ver el empleado
