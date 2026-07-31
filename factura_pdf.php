@@ -11,7 +11,7 @@ use Dompdf\Options;
 $idFactura = $_GET["id"] ?? "";
 if (!$idFactura) { die("Falta el número de factura."); }
 
-$stmt = $pdo->prepare("SELECT f.*, p.subtotal, p.num_mesa, p.tipo_ped
+$stmt = $pdo->prepare("SELECT f.*, p.subtotal, p.num_mesa, p.tipo_ped, p.descuento_pct, p.descuento_monto, p.metodo_pago
                         FROM factura f JOIN pedido p ON p.ID_Pedido = f.ID_Pedido
                         WHERE f.ID_Factura = ?");
 $stmt->execute([$idFactura]);
@@ -58,6 +58,12 @@ ob_start();
       <td width="50%"><strong>Cliente:</strong> <?php echo htmlspecialchars($factura["nombre_cliente"]); ?></td>
       <td width="50%"><strong>Fecha:</strong> <?php echo htmlspecialchars($factura["fecha_fac"]); ?></td>
     </tr>
+    <?php if (!empty($factura["rtn_cliente"])): ?>
+    <tr>
+      <td><strong>RTN:</strong> <?php echo htmlspecialchars($factura["rtn_cliente"]); ?></td>
+      <td></td>
+    </tr>
+    <?php endif; ?>
     <tr>
       <td><strong>Pedido:</strong> <?php echo htmlspecialchars($factura["ID_Pedido"]); ?>
         <?php echo $factura["num_mesa"] ? " (Mesa " . htmlspecialchars($factura["num_mesa"]) . ")" : " (" . htmlspecialchars($factura["tipo_ped"]) . ")"; ?></td>
@@ -79,8 +85,12 @@ ob_start();
 
   <table class="totales">
     <tr><td>Subtotal</td><td align="right">L. <?php echo number_format((float) $factura["subtotal"], 2); ?></td></tr>
+    <?php if ((float) ($factura["descuento_monto"] ?? 0) > 0): ?>
+    <tr><td>Descuento (<?php echo htmlspecialchars($factura["descuento_pct"]); ?>%)</td><td align="right">− L. <?php echo number_format((float) $factura["descuento_monto"], 2); ?></td></tr>
+    <?php endif; ?>
     <tr><td>Impuesto (15%)</td><td align="right">L. <?php echo number_format((float) $factura["impuesto"], 2); ?></td></tr>
     <tr class="total-final"><td>TOTAL</td><td align="right">L. <?php echo number_format((float) $factura["total"], 2); ?></td></tr>
+    <tr><td>Método de pago</td><td align="right"><?php echo htmlspecialchars($factura["metodo_pago"] ?? "Efectivo"); ?></td></tr>
   </table>
 
   <p class="footer">¡Gracias por su preferencia!</p>

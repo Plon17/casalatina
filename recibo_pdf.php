@@ -77,8 +77,12 @@ ob_start();
 
   <table class="totales">
     <tr><td>Subtotal</td><td align="right">L. <?php echo number_format((float) $pedido["subtotal"], 2); ?></td></tr>
+    <?php if ((float) ($pedido["descuento_monto"] ?? 0) > 0): ?>
+    <tr><td>Descuento (<?php echo htmlspecialchars($pedido["descuento_pct"]); ?>%)</td><td align="right">− L. <?php echo number_format((float) $pedido["descuento_monto"], 2); ?></td></tr>
+    <?php endif; ?>
     <tr><td>Impuesto (15%)</td><td align="right">L. <?php echo number_format((float) $pedido["impuesto"], 2); ?></td></tr>
     <tr class="total-final"><td>TOTAL</td><td align="right">L. <?php echo number_format((float) $pedido["total"], 2); ?></td></tr>
+    <tr><td>Método de pago</td><td align="right"><?php echo htmlspecialchars($pedido["metodo_pago"] ?? "Efectivo"); ?></td></tr>
     <tr><td>Recibido</td><td align="right">L. <?php echo number_format((float) ($pedido["monto_recibido"] ?? 0), 2); ?></td></tr>
     <tr><td>Cambio</td><td align="right">L. <?php echo number_format((float) ($pedido["cambio"] ?? 0), 2); ?></td></tr>
   </table>
