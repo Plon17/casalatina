@@ -26,6 +26,10 @@ $tituloReporte = $titulos[$tipo] ?? "Reporte";
 // ---------- Datos según el tipo de reporte ----------
 $filas = [];
 $totalGeneral = 0;
+$ventas = 0.0;
+$gastos = 0.0;   
+$compras = 0.0;  
+$utilidad = 0.0; 
 
 if ($tipo === "ventas") {
     $stmt = $pdo->prepare("SELECT * FROM factura WHERE fecha_fac BETWEEN ? AND ? ORDER BY fecha_fac");
@@ -161,8 +165,8 @@ ob_start();
   <?php elseif ($tipo === "resumen"): ?>
     <table class="resumen-tabla">
         <tr><td>Ventas (facturación)</td><td align="right">L. <?php echo number_format($ventas, 2); ?></td></tr>
-        <tr><td>Gastos</td><td align="right">− L. <?php echo number_format($gastos, 2); ?></td></tr>
-        <tr><td>Compras a proveedores</td><td align="right">− L. <?php echo number_format($compras, 2); ?></td></tr>
+        <tr><td>Gastos</td><td align="right">- L. <?php echo number_format($gastos, 2); ?></td></tr>
+        <tr><td>Compras a proveedores</td><td align="right">- L. <?php echo number_format($compras, 2); ?></td></tr>
         <tr class="utilidad"><td>Utilidad neta del período</td><td align="right">L. <?php echo number_format($utilidad, 2); ?></td></tr>
     </table>
 
