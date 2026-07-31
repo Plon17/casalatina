@@ -96,14 +96,24 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 3 de 3 — Cobro</p>
-<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
+<p><a href="pedidos_listado.php">← Volver a Mesas</a><?php if ($pedido["estado"] === "EnCocina"): ?> &nbsp;|&nbsp; <a href="pedido_paso2.php?id=<?php echo urlencode($idPedido); ?>">+ Agregar más productos</a><?php endif; ?></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Estado: <?php echo htmlspecialchars($pedido["estado"]); ?></p>
 
-<?php if (isset($_GET["enviado"])): ?><p class="mensaje-ok">Pedido enviado a cocina correctamente.</p><?php endif; ?>
+<?php if (isset($_GET["comanda_lote"])): ?><p class="mensaje-ok">Pedido enviado a cocina correctamente. Se abrió la comanda en otra pestaña.</p><?php endif; ?>
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo $mensaje; ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
+
+<?php if (in_array($pedido["estado"], ["EnCocina", "Pagado"])): ?>
+<p><button type="button" onclick="window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>', '_blank')">Ver comanda completa</button></p>
+<?php endif; ?>
+
+<?php if (isset($_GET["comanda_lote"])): ?>
+<script>
+window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php echo (int) $_GET["comanda_lote"]; ?>', '_blank');
+</script>
+<?php endif; ?>
 
 <div class="pd-card">
 <h3 style="margin-top:0;">Detalle del pedido</h3>

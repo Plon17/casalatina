@@ -3,19 +3,15 @@ $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 
-// Ajusta este número según cuántas mesas físicas tenga el local
 $totalMesas = 12;
 
-// Posiciones [izquierda%, arriba%] de cada mesa dentro del plano.
-// Si agregas más mesas que las que tienen posición definida aquí,
-// se acomodan solas en una cuadrícula de respaldo más abajo.
+
 $posicionesMesas = [
     1 => [19, 15],  2 => [35, 15],  3 => [51, 15],  4 => [67, 15],
     5 => [19, 42],  6 => [35, 42],  7 => [51, 42],  8 => [67, 42],
     9 => [19, 68], 10 => [35, 68], 11 => [51, 68], 12 => [67, 68],
 ];
 
-// Pedidos de mesa activos, indexados por número de mesa
 $mesasActivas = [];
 foreach ($pdo->query("SELECT ID_Pedido, num_mesa, estado, total FROM pedido
                        WHERE tipo_ped='Mesa' AND estado IN ('Abierto','EnCocina')")->fetchAll(PDO::FETCH_ASSOC) as $m) {
