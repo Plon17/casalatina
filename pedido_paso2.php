@@ -2,6 +2,7 @@
 $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $idPedido = $_GET["id"] ?? $_POST["id_pedido"] ?? "";
 $error = "";
@@ -128,6 +129,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "agreg
 // Cancelar el pedido desde aquí también
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
     $pdo->prepare("UPDATE pedido SET estado='Cancelado' WHERE ID_Pedido=?")->execute([$idPedido]);
+    registrarAuditoria($pdo, "pedido", "Pedido cancelado", $idPedido);
     header("Location: pedidos_listado.php");
     exit;
 }

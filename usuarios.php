@@ -2,6 +2,7 @@
 $modulo_actual = "usuarios";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 // Solo Administrador entra aquí (defensa extra además de includes/auth.php,
 // por si algún día se agrega "usuarios" a modulos_empleado por error)
@@ -21,12 +22,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
     $stmt = $pdo->prepare("INSERT INTO empleado (cod_empleado, nombre_empl, puesto_empl, salario_empl) VALUES (?,?,?,?)");
     $stmt->execute([$codEmpleado, $_POST["nombre_empl"], $_POST["puesto_empl"], $_POST["salario_empl"] ?: null]);
     $mensaje = "Empleado agregado ($codEmpleado).";
+    registrarAuditoria($pdo, "usuarios", "Empleado agregado", "$codEmpleado - " . $_POST["nombre_empl"]);
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "editar_empleado") {
     $stmt = $pdo->prepare("UPDATE empleado SET nombre_empl=?, puesto_empl=?, salario_empl=? WHERE cod_empleado=?");
     $stmt->execute([$_POST["nombre_empl"], $_POST["puesto_empl"], $_POST["salario_empl"] ?: null, $_POST["cod_empleado"]]);
     $mensaje = "Empleado actualizado.";
+    registrarAuditoria($pdo, "usuarios", "Empleado editado", $_POST["cod_empleado"]);
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "eliminar_empleado") {
@@ -44,15 +47,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "elimi
     if ($usos) {
         $pdo->prepare("UPDATE empleado SET activo = 0 WHERE cod_empleado=?")->execute([$cod]);
         $mensaje = "Este empleado tiene " . implode(" y ", $usos) . " asociados, así que no se puede borrar sin perder ese historial. Se marcó como inactivo.";
+        registrarAuditoria($pdo, "usuarios", "Empleado desactivado", $cod);
     } else {
         $pdo->prepare("DELETE FROM empleado WHERE cod_empleado=?")->execute([$cod]);
         $mensaje = "Empleado eliminado.";
+        registrarAuditoria($pdo, "usuarios", "Empleado eliminado", $cod);
     }
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "reactivar_empleado") {
     $pdo->prepare("UPDATE empleado SET activo = 1 WHERE cod_empleado=?")->execute([$_POST["cod_empleado"]]);
     $mensaje = "Empleado reactivado.";
+    registrarAuditoria($pdo, "usuarios", "Empleado reactivado", $_POST["cod_empleado"]);
 }
 
 // ---------- USUARIOS ----------
@@ -77,6 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
         $stmt = $pdo->prepare("INSERT INTO usuarios (ID_usuario, usuario, contrasena, rol, cod_empleado) VALUES (?,?,?,?,?)");
         $stmt->execute([$idUsuario, $_POST["usuario"], $hash, $_POST["rol"], $_POST["cod_empleado"] ?: null]);
         $mensaje = "Usuario creado ($idUsuario).";
+        registrarAuditoria($pdo, "usuarios", "Usuario creado", "$idUsuario (" . $_POST["usuario"] . ") rol: " . $_POST["rol"]);
     }
 }
 
@@ -100,6 +107,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "edita
             $stmt->execute([$_POST["usuario"], $_POST["rol"], $_POST["cod_empleado"] ?: null, $idUsuario]);
         }
         $mensaje = "Usuario actualizado.";
+        $detalleAudit = $idUsuario . " (" . $_POST["usuario"] . ")";
+        if ($rolActual !== $_POST["rol"]) {
+            $detalleAudit .= " — rol cambiado de $rolActual a " . $_POST["rol"];
+        }
+        registrarAuditoria($pdo, "usuarios", "Usuario editado", $detalleAudit);
     }
 }
 
@@ -118,6 +130,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "elimi
         } else {
             $pdo->prepare("DELETE FROM usuarios WHERE ID_usuario=?")->execute([$idUsuario]);
             $mensaje = "Usuario eliminado.";
+            registrarAuditoria($pdo, "usuarios", "Usuario eliminado", "$idUsuario (rol: $rolActual)");
         }
     }
 }

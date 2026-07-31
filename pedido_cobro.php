@@ -2,6 +2,7 @@
 $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 // El RTN hondureño son 13 o 14 dígitos (los guiones son solo de formato, no cuentan)
 function rtnValido(string $rtn): bool {
@@ -78,6 +79,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
 
             $pdo->commit();
             $mensaje = "Pedido #" . htmlspecialchars($idPedido) . " cobrado correctamente ($metodoPago). Factura $idFactura generada.";
+
+            if ($descuentoPct > 0) {
+                registrarAuditoria($pdo, "pedido", "Descuento aplicado",
+                    "$idPedido — $descuentoPct% (L. " . number_format($descuentoMonto, 2) . ")");
+            }
         }
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -88,6 +94,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
 // Cancelar desde esta pantalla también
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
     $pdo->prepare("UPDATE pedido SET estado='Cancelado' WHERE ID_Pedido=?")->execute([$idPedido]);
+    registrarAuditoria($pdo, "pedido", "Pedido cancelado", $idPedido);
     header("Location: pedido_paso1.php");
     exit;
 }
@@ -142,7 +149,7 @@ require_once __DIR__ . "/includes/layout_top.php";
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Estado: <?php echo htmlspecialchars($pedido["estado"]); ?></p>
 
-<?php if (isset($_GET["comanda_lote"])): ?><p class="mensaje-ok">Pedido enviado a cocina correctamente.</p><?php endif; ?>
+<?php if (isset($_GET["comanda_lote"])): ?><p class="mensaje-ok">Pedido enviado a cocina correctamente. Se abrió la comanda en otra pestaña.</p><?php endif; ?>
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo $mensaje; ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
@@ -265,7 +272,7 @@ function validarAntesDeCobrar() {
     if (rtn !== "") {
         const soloDigitos = rtn.replace(/-/g, "");
         if (!/^\d+$/.test(soloDigitos) || soloDigitos.length < 13 || soloDigitos.length > 14) {
-            alert("El RTN debe tener 13 o 14 dígitos (puedes usar guiones o no).");
+            alert("El RTN debe tener 13 o 14 dígitos (puedes usar guiones o no). Corrígelo o déjalo en blanco.");
             return false;
         }
     }

@@ -2,6 +2,7 @@
 $modulo_actual = "factura";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -12,6 +13,7 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "borrar") {
     $pdo->prepare("DELETE FROM factura WHERE ID_Factura = ?")->execute([$_POST["id_factura"]]);
     $mensaje = "Factura eliminada.";
+    registrarAuditoria($pdo, "factura", "Factura eliminada", $_POST["id_factura"]);
 }
 
 $verId = $_GET["ver"] ?? null;
