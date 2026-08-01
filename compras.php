@@ -2,6 +2,7 @@
 $modulo_actual = "compras";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -30,6 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
 
             $pdo->commit();
             $mensaje = "Compra #$idCompra registrada. Stock actualizado (+$cantidad unidades).";
+            registrarAuditoria($pdo, "compras", "Compra registrada", "$idCompra — $idProducto x$cantidad (L. $monto)");
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error al registrar la compra: " . $e->getMessage();

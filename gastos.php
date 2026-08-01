@@ -2,6 +2,7 @@
 $modulo_actual = "gastos";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -17,6 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
         $stmt = $pdo->prepare("INSERT INTO gastos (ID_gastos, nombre, tipo, descripcion) VALUES (?,?,?,?)");
         $stmt->execute([$idGasto, $_POST["nombre"], $_POST["tipo"], $_POST["descripcion"]]);
         $mensaje = "Categoría de gasto registrada.";
+        registrarAuditoria($pdo, "gastos", "Categoría de gasto creada", "$idGasto - " . $_POST["nombre"]);
     }
 }
 
@@ -31,6 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
         $stmt = $pdo->prepare("INSERT INTO gastos_detalles (ID_detg, fecha, monto, ID_gastos) VALUES (?,?,?,?)");
         $stmt->execute([$idDetg, $_POST["fecha"], $_POST["monto"], $idGastos]);
         $mensaje = "Detalle de gasto registrado.";
+        registrarAuditoria($pdo, "gastos", "Gasto registrado", "$idDetg — $idGastos (L. " . $_POST["monto"] . ")");
     }
 }
 

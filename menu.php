@@ -38,11 +38,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     if ($_POST["accion"] === "editar") {
         $pdo->beginTransaction();
         try {
+            // Traemos precio y receta anteriores para poder marcarlo en la auditoría si cambiaron
+            $stmtAnterior = $pdo->prepare("SELECT precio FROM menu WHERE ID_Menu = ?");
+            $stmtAnterior->execute([$_POST["id_menu"]]);
+            $precioAnterior = $stmtAnterior->fetch()["precio"] ?? null;
+
+            $stmtRecetaAnterior = $pdo->prepare("SELECT ID_Producto, cantidad_necesaria FROM menu_ingredientes WHERE ID_Menu = ? ORDER BY ID_Producto");
+            $stmtRecetaAnterior->execute([$_POST["id_menu"]]);
+            $recetaAnteriorNorm = [];
+            foreach ($stmtRecetaAnterior->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $recetaAnteriorNorm[$r["ID_Producto"]] = (float) $r["cantidad_necesaria"];
+            }
+            ksort($recetaAnteriorNorm);
+
             $stmt = $pdo->prepare("UPDATE menu SET nombre=?, precio=?, tipo=?, descripcion_men=? WHERE ID_Menu=?");
             $stmt->execute([$_POST["nombre"], $_POST["precio"], $_POST["tipo"], $_POST["descripcion"], $_POST["id_menu"]]);
             guardarIngredientes($pdo, $_POST["id_menu"], $_POST["ingredientes_json"] ?? "[]");
             $pdo->commit();
             $mensaje = "Item actualizado correctamente.";
+
+            $detalleAudit = $_POST["id_menu"] . " - " . $_POST["nombre"];
+            if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
+                $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
+            }
+
+            $recetaNuevaNorm = [];
+            foreach (json_decode($_POST["ingredientes_json"] ?? "[]", true) ?: [] as $ing) {
+                if (!empty($ing["id_producto"])) {
+                    $recetaNuevaNorm[$ing["id_producto"]] = (float) ($ing["cantidad"] ?? 0);
+                }
+            }
+            ksort($recetaNuevaNorm);
+            if ($recetaAnteriorNorm !== $recetaNuevaNorm) {
+                $detalleAudit .= " — receta modificada";
+            }
+
+            registrarAuditoria($pdo, "menu", "Item editado", $detalleAudit);
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error al actualizar: " . $e->getMessage();

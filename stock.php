@@ -18,12 +18,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                 $_POST["precio"], $_POST["categoria"], $_POST["id_proveedor"] ?: null
             ]);
             $mensaje = "Producto agregado.";
+            registrarAuditoria($pdo, "stock", "Producto agregado", $_POST["id_producto"] . " - " . $_POST["nombre"] . " (cantidad inicial: " . $_POST["cantidad"] . ")");
         } catch (Exception $e) {
             $error = "Error al agregar el producto (¿el ID ya existe?): " . $e->getMessage();
         }
     }
 
     if ($_POST["accion"] === "editar") {
+        // Traemos cantidad y precio anteriores para poder marcar en la auditoría si
+        // alguien los cambió a mano (fuera del flujo normal de Compras)
+        $stmtAnterior = $pdo->prepare("SELECT cantidad_pro, precio_pro FROM producto WHERE ID_Producto = ?");
+        $stmtAnterior->execute([$_POST["id_producto"]]);
+        $anterior = $stmtAnterior->fetch();
+        $cantidadAnterior = $anterior["cantidad_pro"] ?? null;
+        $precioAnterior = $anterior["precio_pro"] ?? null;
+
         $stmt = $pdo->prepare("UPDATE producto SET nombre_pro=?, cantidad_pro=?, precio_pro=?, categoria_pro=?, ID_prov=?
                                 WHERE ID_Producto=?");
         $stmt->execute([
@@ -31,6 +40,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
             $_POST["categoria"], $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
         ]);
         $mensaje = "Producto actualizado.";
+
+        $detalleAudit = $_POST["id_producto"] . " - " . $_POST["nombre"];
+        if ($cantidadAnterior !== null && (float) $cantidadAnterior !== (float) $_POST["cantidad"]) {
+            $detalleAudit .= " — cantidad cambiada manualmente de $cantidadAnterior a " . $_POST["cantidad"];
+        }
+        if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
+            $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
+        }
+        registrarAuditoria($pdo, "stock", "Producto editado", $detalleAudit);
     }
 
     if ($_POST["accion"] === "eliminar") {
