@@ -133,10 +133,14 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
 .pd-field{display:flex;flex-direction:column;gap:4px;}
 .pd-field label{font-size:13px;color:#444;}
-.pd-field input,.pd-field select{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:120px;}
+.pd-field input,.pd-field select{padding:8px 10px;border:1px solid #ccc;border-radius:4px;width:100%;box-sizing:border-box;}
 .pd-actions{margin-top:16px;display:flex;gap:10px;}
+.cobro-grid{display:grid;gap:18px;margin-bottom:18px;}
+.cobro-grid-3{grid-template-columns:repeat(3, 1fr);}
+.cobro-grid-2{grid-template-columns:repeat(2, 1fr);}
+@media (max-width: 640px){ .cobro-grid-3, .cobro-grid-2{grid-template-columns:1fr;} }
 .metodo-pago{display:flex; gap:12px;}
-.metodo-pago label{display:flex; align-items:center; gap:6px; border:1px solid #ccc; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:14px;}
+.metodo-pago label{display:flex; align-items:center; gap:6px; border:1px solid #ccc; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:14px; flex:1; justify-content:center;}
 .metodo-pago input:checked + span{font-weight:700; color:#C0563A;}
 .resumen-cobro{background:#faf5ef; border-radius:6px; padding:12px 16px; margin-top:10px; max-width:320px;}
 .resumen-cobro div{display:flex; justify-content:space-between; font-size:14px; padding:2px 0;}
@@ -187,7 +191,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
     <input type="hidden" name="accion" value="cobrar">
     <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
 
-    <div class="pd-row">
+    <div class="cobro-grid cobro-grid-3">
         <div class="pd-field">
             <label>Método de pago</label>
             <div class="metodo-pago">
@@ -200,11 +204,14 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
             <input type="number" step="0.01" min="0" max="100" name="descuento_pct" id="descuento_pct" value="0" oninput="actualizarResumen()">
         </div>
         <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
+    </div>
+
+    <div class="cobro-grid cobro-grid-2">
         <div class="pd-field"><label>Nombre del Cliente (opcional)</label><input type="text" name="nombre_cliente" placeholder="Consumidor Final"></div>
         <div class="pd-field"><label>RTN del Cliente (opcional)</label><input type="text" name="rtn_cliente" id="rtn_cliente" placeholder="0801-1990-123456" inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9-]/g, '')"></div>
     </div>
 
-    <div class="pd-row" id="filaEfectivo" style="margin-top:12px;">
+    <div class="cobro-grid cobro-grid-2" id="filaEfectivo">
         <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" oninput="actualizarResumen()"></div>
         <div class="pd-field"><label>Cambio</label><input type="text" id="cambio" readonly></div>
     </div>
@@ -226,7 +233,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
 <div class="pd-card">
 <h3 style="margin-top:0;">Dividir cuenta</h3>
 <div class="pd-row">
-    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="2" id="personas" oninput="actualizarDivision()"></div>
+    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()"></div>
 </div>
 <p id="divisionResultado" style="margin-top:10px;"></p>
 <button type="button" onclick="imprimirDivision()">Imprimir división</button>
@@ -257,7 +264,7 @@ function actualizarResumen() {
     document.getElementById("r_total").textContent = "L. " + total.toFixed(2);
 
     const esTarjeta = document.querySelector('input[name="metodo_pago"]:checked').value === "Tarjeta";
-    document.getElementById("filaEfectivo").style.display = esTarjeta ? "none" : "flex";
+    document.getElementById("filaEfectivo").style.display = esTarjeta ? "none" : "grid";
     document.getElementById("monto_recibido").required = !esTarjeta;
 
     if (!esTarjeta) {
