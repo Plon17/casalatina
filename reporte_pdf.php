@@ -23,6 +23,8 @@ $titulos = [
     "resumen"      => "Resumen Financiero",
     "top_platos"   => "Platos Más Vendidos",
     "metodo_pago"  => "Cierre de Caja — Efectivo vs. Tarjeta",
+    "auditoria"    => "Reporte de Auditoría",
+    "inventario"   => "Inventario Actual",
 ];
 $tituloReporte = $titulos[$tipo] ?? "Reporte";
 
@@ -133,6 +135,41 @@ if ($tipo === "metodo_pago") {
     $totalGeneral = $totalEfectivo + $totalTarjeta;
 }
 
+if ($tipo === "auditoria") {
+    $filtroUsuario = trim($_GET["usuario"] ?? "");
+    $filtroModulo = trim($_GET["modulo"] ?? "");
+    $filtroTexto = trim($_GET["texto"] ?? "");
+
+    $condiciones = ["fecha_hora >= ?", "fecha_hora <= ?"];
+    $params = [$desde . " 00:00:00", $hasta . " 23:59:59"];
+    if ($filtroUsuario !== "") { $condiciones[] = "usuario LIKE ?"; $params[] = "%$filtroUsuario%"; }
+    if ($filtroModulo !== "") { $condiciones[] = "modulo = ?"; $params[] = $filtroModulo; }
+    if ($filtroTexto !== "") { $condiciones[] = "(accion LIKE ? OR detalle LIKE ?)"; $params[] = "%$filtroTexto%"; $params[] = "%$filtroTexto%"; }
+
+    $sql = "SELECT * FROM auditoria WHERE " . implode(" AND ", $condiciones) . " ORDER BY fecha_hora DESC";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+if ($tipo === "inventario") {
+    // Foto del momento: no depende de $desde/$hasta
+    $stmt = $pdo->query("SELECT prod.*, pv.nom_prov
+                          FROM producto prod
+                          LEFT JOIN proveedores pv ON pv.ID_prov = prod.ID_prov
+                          WHERE prod.activo = 1
+                          ORDER BY prod.categoria_pro, prod.nombre_pro");
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $valorTotalInventario = 0;
+    $countBajo = 0;
+    foreach ($filas as $f) {
+        $valorTotalInventario += (float) $f["cantidad_pro"] * (float) $f["precio_pro"];
+        if ((float) $f["cantidad_pro"] <= 5) $countBajo++;
+    }
+    $totalGeneral = $valorTotalInventario;
+}
+
 // ---------- HTML del reporte ----------
 ob_start();
 ?>
@@ -162,7 +199,11 @@ ob_start();
     <p>Comida típica hondureña — Tel: 0000-0000</p>
     <p class="titulo-reporte"><?php echo htmlspecialchars($tituloReporte); ?></p>
   </div>
+  <?php if ($tipo === "inventario"): ?>
+  <p class="rango">Al día de hoy: <?php echo date("Y-m-d"); ?></p>
+  <?php else: ?>
   <p class="rango">Del <?php echo htmlspecialchars($desde); ?> al <?php echo htmlspecialchars($hasta); ?></p>
+  <?php endif; ?>
 
   <?php if ($tipo === "ventas"): ?>
     <table class="items">
@@ -288,6 +329,50 @@ ob_start();
         <td><?php echo htmlspecialchars($f["nombre_cliente"]); ?></td>
         <td><?php echo htmlspecialchars($f["metodo_pago"] ?? "Efectivo"); ?></td>
         <td>L. <?php echo number_format((float) $f["total"], 2); ?></td>
+    </tr>
+    <?php endforeach; ?>
+    </table>
+  <?php elseif ($tipo === "auditoria"): ?>
+    <?php if ($filtroUsuario || $filtroModulo || $filtroTexto): ?>
+    <p style="color:#666; font-size:12px; margin-bottom:10px;">
+        Filtros aplicados:
+        <?php if ($filtroUsuario): ?> Usuario: "<?php echo htmlspecialchars($filtroUsuario); ?>" <?php endif; ?>
+        <?php if ($filtroModulo): ?> · Módulo: "<?php echo htmlspecialchars($filtroModulo); ?>" <?php endif; ?>
+        <?php if ($filtroTexto): ?> · Texto: "<?php echo htmlspecialchars($filtroTexto); ?>" <?php endif; ?>
+    </p>
+    <?php endif; ?>
+    <table class="items">
+    <tr><th>Fecha/Hora</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Detalle</th></tr>
+    <?php if (count($filas) === 0): ?><tr><td colspan="5">No hay movimientos que coincidan.</td></tr><?php endif; ?>
+    <?php foreach ($filas as $f): ?>
+    <tr>
+        <td><?php echo htmlspecialchars($f["fecha_hora"]); ?></td>
+        <td><?php echo htmlspecialchars($f["usuario"] ?? "—"); ?></td>
+        <td><?php echo htmlspecialchars($f["modulo"]); ?></td>
+        <td><?php echo htmlspecialchars($f["accion"]); ?></td>
+        <td><?php echo htmlspecialchars($f["detalle"]); ?></td>
+    </tr>
+    <?php endforeach; ?>
+    </table>
+    <p class="total-final" style="font-size:12px;"><?php echo count($filas); ?> movimiento(s) en total</p>
+  <?php elseif ($tipo === "inventario"): ?>
+    <table class="resumen-tabla" style="width:360px;">
+        <tr><td>Valor total del inventario</td><td align="right">L. <?php echo number_format($valorTotalInventario, 2); ?></td></tr>
+        <tr><td colspan="2" style="color:#888; font-size:11px; padding-top:0;"><?php echo count($filas); ?> producto(s) activo(s)<?php echo $countBajo > 0 ? " — $countBajo con stock bajo" : ""; ?></td></tr>
+    </table>
+
+    <table class="items" style="margin-top:18px;">
+    <tr><th>Producto</th><th>Categoría</th><th>Cantidad</th><th>Precio</th><th>Valor</th><th>Proveedor</th></tr>
+    <?php if (count($filas) === 0): ?><tr><td colspan="6">No hay productos activos en inventario.</td></tr><?php endif; ?>
+    <?php foreach ($filas as $f): ?>
+    <?php $bajo = (float) $f["cantidad_pro"] <= 5; ?>
+    <tr<?php echo $bajo ? ' style="background:#fdecea;"' : ''; ?>>
+        <td><?php echo htmlspecialchars($f["nombre_pro"]); ?><?php echo $bajo ? " (bajo)" : ""; ?></td>
+        <td><?php echo htmlspecialchars($f["categoria_pro"]); ?></td>
+        <td><?php echo number_format((float) $f["cantidad_pro"], 2); ?></td>
+        <td>L. <?php echo number_format((float) $f["precio_pro"], 2); ?></td>
+        <td>L. <?php echo number_format((float) $f["cantidad_pro"] * (float) $f["precio_pro"], 2); ?></td>
+        <td><?php echo htmlspecialchars($f["nom_prov"] ?? "—"); ?></td>
     </tr>
     <?php endforeach; ?>
     </table>
