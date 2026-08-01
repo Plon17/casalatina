@@ -102,10 +102,21 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd; padding:6px 10px; text-align:left; font-size:14px;}
 .pd-tabla th{background:#f5f5f5;}
 
-.barra-chart{display:flex; align-items:flex-end; gap:10px; height:120px; margin-top:10px;}
-.barra-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;}
-.barra{width:100%; background:#C0563A; border-radius:3px 3px 0 0; min-height:2px;}
+.barra-chart{display:flex; align-items:flex-end; gap:10px; height:120px; margin-top:26px;}
+.barra-col{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; position:relative;}
+.barra{width:100%; background:#C0563A; border-radius:3px 3px 0 0; min-height:2px; position:relative; cursor:default;}
 .barra-fecha{font-size:11px; color:#777; margin-top:4px;}
+.barra-tooltip{
+    position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%) translateY(4px);
+    background:#3A2A20; color:#fff; font-size:12px; font-weight:600; white-space:nowrap;
+    padding:4px 9px; border-radius:5px; opacity:0; pointer-events:none;
+    transition:opacity .12s ease, transform .12s ease;
+}
+.barra-tooltip::after{
+    content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+    border:5px solid transparent; border-top-color:#3A2A20;
+}
+.barra:hover .barra-tooltip{opacity:1; transform:translateX(-50%) translateY(0);}
 </style>
 
 <p class="bienvenida">
@@ -163,12 +174,13 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
 
         <div class="pd-card">
-            <h3 style="margin-top:0;">Ventas — últimos 7 días</h3>
+            <h3 style="margin-top:0;">Ventas</h3>
             <div class="barra-chart">
                 <?php foreach ($ultimos7 as $d): ?>
                 <div class="barra-col">
-                    <div class="barra" style="height:<?php echo max(4, round(($d['total'] / $maxVenta) * 100)); ?>%;"
-                         title="L. <?php echo number_format($d['total'], 2); ?>"></div>
+                    <div class="barra" style="height:<?php echo max(4, round(($d['total'] / $maxVenta) * 100)); ?>%;">
+                        <span class="barra-tooltip">L. <?php echo number_format($d['total'], 2); ?></span>
+                    </div>
                     <div class="barra-fecha"><?php echo date("d/m", strtotime($d["fecha"])); ?></div>
                 </div>
                 <?php endforeach; ?>
