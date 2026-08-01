@@ -25,18 +25,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
     if ($_POST["accion"] === "eliminar") {
         // producto.ID_prov referencia esta tabla: si algún insumo todavía le compra
-        // a este proveedor, no lo dejamos borrar a ciegas — mejor decir cuáles son.
+        // a este proveedor, lo desactivamos en vez de borrarlo (igual que en Stock/Menú).
         $stmtProds = $pdo->prepare("SELECT nombre_pro FROM producto WHERE ID_prov = ?");
         $stmtProds->execute([$_POST["id_prov"]]);
         $productos = array_column($stmtProds->fetchAll(PDO::FETCH_ASSOC), "nombre_pro");
 
         if ($productos) {
-            $error = "No se puede eliminar: todavía es el proveedor asignado de " . count($productos) . " producto(s) en Stock (" . implode(", ", $productos) . "). Cambia su proveedor desde Stock (o quítaselo) antes de borrar este proveedor.";
+            $pdo->prepare("UPDATE proveedores SET activo = 0 WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
+            $mensaje = "Este proveedor todavía es el asignado de " . count($productos) . " producto(s) en Stock (" . implode(", ", $productos) . "). Se marcó como inactivo";
+            registrarAuditoria($pdo, "proveedores", "Proveedor desactivado", $_POST["id_prov"]);
         } else {
             $pdo->prepare("DELETE FROM proveedores WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
             $mensaje = "Proveedor eliminado.";
             registrarAuditoria($pdo, "proveedores", "Proveedor eliminado", $_POST["id_prov"]);
         }
+    }
+
+    if ($_POST["accion"] === "reactivar") {
+        $pdo->prepare("UPDATE proveedores SET activo = 1 WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
+        $mensaje = "Proveedor reactivado.";
+        registrarAuditoria($pdo, "proveedores", "Proveedor reactivado", $_POST["id_prov"]);
     }
 }
 
@@ -91,12 +99,12 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th>Productos</th><th></th></tr>
+<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th>Productos</th><th>Estado</th><th></th></tr>
 <?php if (count($proveedores) === 0): ?>
-<tr><td colspan="6">No hay proveedores registrados.</td></tr>
+<tr><td colspan="7">No hay proveedores registrados.</td></tr>
 <?php endif; ?>
 <?php foreach ($proveedores as $p): ?>
-<tr>
+<tr<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
     <td><?php echo htmlspecialchars($p["ID_prov"]); ?></td>
     <td><?php echo htmlspecialchars($p["nom_prov"]); ?></td>
     <td><?php echo htmlspecialchars($p["tel_prov"]); ?></td>
@@ -108,13 +116,22 @@ require_once __DIR__ . "/includes/layout_top.php";
             <span class="badge-sin">ninguno</span>
         <?php endif; ?>
     </td>
+    <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
+        <?php if ($p["activo"]): ?>
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este proveedor?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_prov" value="<?php echo htmlspecialchars($p["ID_prov"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
+        <?php else: ?>
+        <form method="POST" style="display:inline">
+            <input type="hidden" name="accion" value="reactivar">
+            <input type="hidden" name="id_prov" value="<?php echo htmlspecialchars($p["ID_prov"]); ?>">
+            <button type="submit">REACTIVAR</button>
+        </form>
+        <?php endif; ?>
     </td>
 </tr>
 <?php endforeach; ?>

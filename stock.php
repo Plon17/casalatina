@@ -85,7 +85,7 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Los inactivos no entran aquí: ya no se van a comprar más.
 $bajos = $pdo->query("SELECT * FROM producto WHERE cantidad_pro <= 5 AND activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
-$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores")->fetchAll(PDO::FETCH_ASSOC);
+$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "STOCK";
 require_once __DIR__ . "/includes/layout_top.php";
