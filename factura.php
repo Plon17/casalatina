@@ -9,12 +9,8 @@ $error = "";
 
 // Las facturas ya no se escriben a mano: se generan solas al cobrar un pedido
 // (ver pedido_cobro.php). Esta pantalla es el historial: buscar, ver e imprimir.
-
-if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "borrar") {
-    $pdo->prepare("DELETE FROM factura WHERE ID_Factura = ?")->execute([$_POST["id_factura"]]);
-    $mensaje = "Factura eliminada.";
-    registrarAuditoria($pdo, "factura", "Factura eliminada", $_POST["id_factura"]);
-}
+// No se permite borrar facturas: es un registro contable/legal, borrar
+// documentos de ese tipo es mala práctica — se conservan todas.
 
 $verId = $_GET["ver"] ?? null;
 
@@ -37,6 +33,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 .factura-linea{border-top:1px dashed #999;margin:10px 0;}
 .factura-fila{display:flex;justify-content:space-between;padding:2px 0;}
 .factura-total{font-weight:bold;font-size:16px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid #C0563A; border-radius:5px;
+    color:#C0563A; text-decoration:none; font-size:13px; font-weight:600; margin-right:6px;}
+.btn-link:hover{background:#C0563A; color:#fff;}
 </style>
 
 <p class="titulo-modulo">Factura</p>
@@ -157,13 +156,8 @@ require_once __DIR__ . "/includes/layout_top.php";
         <td><?php echo htmlspecialchars($f["fecha_fac"]); ?></td>
         <td><?php echo number_format((float) $f["total"], 2); ?></td>
         <td>
-            <a href="factura.php?ver=<?php echo urlencode($f['ID_Factura']); ?>">Ver</a> ·
-            <a href="factura_pdf.php?id=<?php echo urlencode($f['ID_Factura']); ?>" target="_blank">PDF</a>
-            <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar esta factura? Esto no cancela ni afecta el pedido.');">
-                <input type="hidden" name="accion" value="borrar">
-                <input type="hidden" name="id_factura" value="<?php echo htmlspecialchars($f["ID_Factura"]); ?>">
-                <button type="submit">Borrar</button>
-            </form>
+            <a class="btn-link" href="factura.php?ver=<?php echo urlencode($f['ID_Factura']); ?>">Ver</a>
+            <a class="btn-link" href="factura_pdf.php?id=<?php echo urlencode($f['ID_Factura']); ?>" target="_blank">PDF</a>
         </td>
     </tr>
     <?php endforeach; ?>
