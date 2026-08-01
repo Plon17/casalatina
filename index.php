@@ -66,10 +66,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 ?>
 
 <style>
-.dash-layout{display:flex; gap:20px; align-items:stretch;}
+.dash-layout{display:flex; gap:20px; align-items:flex-start;}
 .dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px;
     display:flex; flex-direction:column;}
-.dash-sidebar-links{overflow-y:auto; max-height:400px;}
+.dash-sidebar-links{overflow-y:auto; max-height:430px;}
 .dash-sidebar .menu-item{margin-bottom:8px;}
 .dash-sidebar .btn{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:6px;
     background:var(--color-primary-light); border:1px solid #eee; text-decoration:none; color:var(--color-text-dark); font-weight:600; font-size:14px;}
@@ -77,7 +77,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .dash-sidebar .icono{font-size:18px;}
 .dash-main{flex:1; min-width:0;}
 
-.sesion-card{border-top:1px solid #eee; margin-top:auto; padding-top:14px; text-align:center;}
+.sesion-card{border-top:1px solid #eee; margin-top:14px; padding-top:14px; text-align:center;}
 .sesion-avatar{width:44px; height:44px; border-radius:50%; background:var(--color-primary); color:#fff; font-weight:700; font-size:18px;
     display:flex; align-items:center; justify-content:center; margin:0 auto 8px auto;}
 .sesion-usuario{font-weight:700; color:var(--color-text-dark); font-size:14px;}

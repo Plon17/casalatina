@@ -32,7 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
         if ($productos) {
             $pdo->prepare("UPDATE proveedores SET activo = 0 WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
-            $mensaje = "Este proveedor todavía es el asignado de " . count($productos) . " producto(s) en Stock (" . implode(", ", $productos) . "). Se marcó como inactivo";
+            $mensaje = "Este proveedor todavía es el asignado de " . count($productos) . " producto(s) en Stock (" . implode(", ", $productos) . "), así que no se puede borrar sin perder esa referencia. Se marcó como inactivo: ya no aparece como opción al asignar proveedor a un producto.";
             registrarAuditoria($pdo, "proveedores", "Proveedor desactivado", $_POST["id_prov"]);
         } else {
             $pdo->prepare("DELETE FROM proveedores WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
@@ -57,11 +57,17 @@ if ($buscar !== "") {
 }
 $proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Cuántos productos de Stock tiene asignados cada proveedor
+// Cuántos productos de Stock tiene asignados cada proveedor, y cuánto se le ha comprado
 $conteoStmt = $pdo->prepare("SELECT COUNT(*) AS c FROM producto WHERE ID_prov = ?");
+$comprasStmt = $pdo->prepare("SELECT COALESCE(SUM(monto_total),0) AS total, COUNT(*) AS c FROM compras WHERE ID_prov = ?");
 foreach ($proveedores as &$p) {
     $conteoStmt->execute([$p["ID_prov"]]);
     $p["num_productos"] = (int) $conteoStmt->fetch()["c"];
+
+    $comprasStmt->execute([$p["ID_prov"]]);
+    $comprasFila = $comprasStmt->fetch();
+    $p["total_comprado"] = (float) $comprasFila["total"];
+    $p["num_compras"] = (int) $comprasFila["c"];
 }
 unset($p);
 
@@ -99,9 +105,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th>Productos</th><th>Estado</th><th></th></tr>
+<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th>Productos</th><th>Total comprado</th><th>Estado</th><th></th></tr>
 <?php if (count($proveedores) === 0): ?>
-<tr><td colspan="7">No hay proveedores registrados.</td></tr>
+<tr><td colspan="8">No hay proveedores registrados.</td></tr>
 <?php endif; ?>
 <?php foreach ($proveedores as $p): ?>
 <tr<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
@@ -116,6 +122,13 @@ require_once __DIR__ . "/includes/layout_top.php";
             <span class="badge-sin">ninguno</span>
         <?php endif; ?>
     </td>
+    <td>
+        <?php if ($p["num_compras"] > 0): ?>
+            L. <?php echo number_format($p["total_comprado"], 2); ?> <span style="color:#888; font-size:12px;">(<?php echo $p["num_compras"]; ?>)</span>
+        <?php else: ?>
+            <span style="color:#999;">—</span>
+        <?php endif; ?>
+    </td>
     <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
@@ -123,7 +136,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este proveedor?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_prov" value="<?php echo htmlspecialchars($p["ID_prov"]); ?>">
-            <button type="submit">DESACTIVAR</button>
+            <button type="submit">ELIMINAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">

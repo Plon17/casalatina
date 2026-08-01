@@ -14,6 +14,7 @@ $tiposReporte = [
     "ventas"      => ["Ventas", "Ingresos por facturación en el período"],
     "gastos"      => ["Gastos", "Gastos registrados, agrupados por categoría"],
     "compras"     => ["Compras", "Compras hechas a proveedores"],
+    "compras_prov"=> ["Compras por Proveedor", "Cuánto le has comprado a cada proveedor"],
     "resumen"     => ["Resumen Financiero", "Ventas vs. Gastos vs. Compras — utilidad del período"],
     "top_platos"  => ["Platos Más Vendidos", "Ranking de platos por cantidad e ingreso generado"],
     "metodo_pago" => ["Cierre de Caja", "Ventas separadas por Efectivo vs. Tarjeta"],

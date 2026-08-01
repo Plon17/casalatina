@@ -16,12 +16,13 @@ $hasta = $_GET["fecha_final"] ?? "";
 if (!$tipo || !$desde || !$hasta) { die("Faltan datos para generar el reporte."); }
 
 $titulos = [
-    "ventas"      => "Reporte de Ventas",
-    "gastos"      => "Reporte de Gastos",
-    "compras"     => "Reporte de Compras",
-    "resumen"     => "Resumen Financiero",
-    "top_platos"  => "Platos Más Vendidos",
-    "metodo_pago" => "Cierre de Caja — Efectivo vs. Tarjeta",
+    "ventas"       => "Reporte de Ventas",
+    "gastos"       => "Reporte de Gastos",
+    "compras"      => "Reporte de Compras",
+    "compras_prov" => "Compras por Proveedor",
+    "resumen"      => "Resumen Financiero",
+    "top_platos"   => "Platos Más Vendidos",
+    "metodo_pago"  => "Cierre de Caja — Efectivo vs. Tarjeta",
 ];
 $tituloReporte = $titulos[$tipo] ?? "Reporte";
 
@@ -61,6 +62,25 @@ if ($tipo === "compras") {
     $stmt->execute([$desde, $hasta]);
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($filas as $f) { $totalGeneral += (float) $f["monto_total"]; }
+}
+
+if ($tipo === "compras_prov") {
+    $stmt = $pdo->prepare("SELECT c.*, p.nombre_pro, pv.nom_prov
+                            FROM compras c
+                            LEFT JOIN producto p ON p.ID_Producto = c.ID_Producto
+                            LEFT JOIN proveedores pv ON pv.ID_prov = c.ID_prov
+                            WHERE c.fecha BETWEEN ? AND ?
+                            ORDER BY pv.nom_prov, c.fecha");
+    $stmt->execute([$desde, $hasta]);
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $comprasPorProveedor = [];
+    foreach ($filas as $f) {
+        $clave = $f["nom_prov"] ?? "(sin proveedor asignado)";
+        $comprasPorProveedor[$clave]["movimientos"][] = $f;
+        $comprasPorProveedor[$clave]["subtotal"] = ($comprasPorProveedor[$clave]["subtotal"] ?? 0) + (float) $f["monto_total"];
+        $totalGeneral += (float) $f["monto_total"];
+    }
 }
 
 if ($tipo === "resumen") {
@@ -201,6 +221,29 @@ ob_start();
     <?php endforeach; ?>
     </table>
     <p class="total-final">Total en compras: L. <?php echo number_format($totalGeneral, 2); ?></p>
+
+  <?php elseif ($tipo === "compras_prov"): ?>
+    <?php if (count($comprasPorProveedor) === 0): ?>
+      <p>No hay compras en este período.</p>
+    <?php endif; ?>
+    <?php foreach ($comprasPorProveedor as $proveedor => $g): ?>
+    <div class="categoria-gasto">
+        <p style="font-weight:bold; font-size:14px; margin:16px 0 6px 0;"><?php echo htmlspecialchars($proveedor); ?></p>
+        <table class="items">
+        <tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Monto</th></tr>
+        <?php foreach ($g["movimientos"] as $m): ?>
+        <tr>
+            <td><?php echo htmlspecialchars($m["fecha"]); ?></td>
+            <td><?php echo htmlspecialchars($m["nombre_pro"] ?? $m["ID_Producto"]); ?></td>
+            <td><?php echo htmlspecialchars($m["cantidad"]); ?></td>
+            <td>L. <?php echo number_format((float) $m["monto_total"], 2); ?></td>
+        </tr>
+        <?php endforeach; ?>
+        </table>
+        <p style="text-align:right; font-size:12px; color:#555; margin-top:2px;">Subtotal <?php echo htmlspecialchars($proveedor); ?>: L. <?php echo number_format($g["subtotal"], 2); ?></p>
+    </div>
+    <?php endforeach; ?>
+    <p class="total-final">Total comprado: L. <?php echo number_format($totalGeneral, 2); ?></p>
 
   <?php elseif ($tipo === "resumen"): ?>
     <table class="resumen-tabla">

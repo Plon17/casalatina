@@ -101,7 +101,10 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Productos con cantidad baja (para el listado de "compras a realizar")
 // Los inactivos no entran aquí: ya no se van a comprar más.
-$bajos = $pdo->query("SELECT * FROM producto WHERE cantidad_pro <= 5 AND activo = 1")->fetchAll(PDO::FETCH_ASSOC);
+$bajos = $pdo->query("SELECT prod.*, pv.nom_prov, pv.tel_prov
+                       FROM producto prod
+                       LEFT JOIN proveedores pv ON pv.ID_prov = prod.ID_prov
+                       WHERE prod.cantidad_pro <= 5 AND prod.activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -223,15 +226,22 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Productos con poco stock (posibles compras a realizar)</h3>
 <table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th></tr>
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Proveedor a contactar</th></tr>
 <?php if (count($bajos) === 0): ?>
-<tr><td colspan="3">Todo el inventario está en buen nivel.</td></tr>
+<tr><td colspan="4">Todo el inventario está en buen nivel.</td></tr>
 <?php endif; ?>
 <?php foreach ($bajos as $b): ?>
 <tr class="fila-bajo">
     <td><?php echo htmlspecialchars($b["ID_Producto"]); ?></td>
     <td><?php echo htmlspecialchars($b["nombre_pro"]); ?></td>
     <td><?php echo htmlspecialchars($b["cantidad_pro"]); ?></td>
+    <td>
+        <?php if ($b["nom_prov"]): ?>
+            <?php echo htmlspecialchars($b["nom_prov"]); ?><?php echo $b["tel_prov"] ? " — " . htmlspecialchars($b["tel_prov"]) : ""; ?>
+        <?php else: ?>
+            <span style="color:#999;">sin proveedor asignado</span>
+        <?php endif; ?>
+    </td>
 </tr>
 <?php endforeach; ?>
 </table>
