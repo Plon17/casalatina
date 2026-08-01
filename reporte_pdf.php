@@ -36,12 +36,21 @@ if ($tipo === "ventas") {
 }
 
 if ($tipo === "gastos") {
-    $stmt = $pdo->prepare("SELECT gd.*, g.nombre AS categoria, g.tipo
+    $stmt = $pdo->prepare("SELECT gd.*, g.nombre AS categoria, g.tipo, g.descripcion
                             FROM gastos_detalles gd JOIN gastos g ON g.ID_gastos = gd.ID_gastos
-                            WHERE gd.fecha BETWEEN ? AND ? ORDER BY gd.fecha");
+                            WHERE gd.fecha BETWEEN ? AND ? ORDER BY g.nombre, gd.fecha");
     $stmt->execute([$desde, $hasta]);
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($filas as $f) { $totalGeneral += (float) $f["monto"]; }
+
+    // Agrupamos por categoría para no repetir la descripción en cada línea
+    $gastosPorCategoria = [];
+    foreach ($filas as $f) {
+        $gastosPorCategoria[$f["categoria"]]["tipo"] = $f["tipo"];
+        $gastosPorCategoria[$f["categoria"]]["descripcion"] = $f["descripcion"];
+        $gastosPorCategoria[$f["categoria"]]["movimientos"][] = $f;
+        $gastosPorCategoria[$f["categoria"]]["subtotal"] = ($gastosPorCategoria[$f["categoria"]]["subtotal"] ?? 0) + (float) $f["monto"];
+    }
 }
 
 if ($tipo === "compras") {
@@ -151,18 +160,30 @@ ob_start();
     <p class="total-final">Total de ventas: L. <?php echo number_format($totalGeneral, 2); ?> (<?php echo count($filas); ?> factura(s))</p>
 
   <?php elseif ($tipo === "gastos"): ?>
-    <table class="items">
-    <tr><th>Fecha</th><th>Categoría</th><th>Tipo</th><th>Monto</th></tr>
-    <?php if (count($filas) === 0): ?><tr><td colspan="4">No hay gastos en este período.</td></tr><?php endif; ?>
-    <?php foreach ($filas as $f): ?>
-    <tr>
-        <td><?php echo htmlspecialchars($f["fecha"]); ?></td>
-        <td><?php echo htmlspecialchars($f["categoria"]); ?></td>
-        <td><?php echo htmlspecialchars($f["tipo"]); ?></td>
-        <td>L. <?php echo number_format((float) $f["monto"], 2); ?></td>
-    </tr>
+    <?php if (count($gastosPorCategoria) === 0): ?>
+      <p>No hay gastos en este período.</p>
+    <?php endif; ?>
+    <?php foreach ($gastosPorCategoria as $categoria => $g): ?>
+    <div class="categoria-gasto">
+        <p style="font-weight:bold; font-size:14px; margin:16px 0 2px 0;">
+            <?php echo htmlspecialchars($categoria); ?>
+            <span style="font-weight:normal; color:#777; font-size:12px;">(<?php echo htmlspecialchars($g["tipo"]); ?>)</span>
+        </p>
+        <?php if ($g["descripcion"]): ?>
+        <p style="color:#777; font-size:11px; margin:0 0 6px 0;"><?php echo htmlspecialchars($g["descripcion"]); ?></p>
+        <?php endif; ?>
+        <table class="items">
+        <tr><th>Fecha</th><th>Monto</th></tr>
+        <?php foreach ($g["movimientos"] as $m): ?>
+        <tr>
+            <td><?php echo htmlspecialchars($m["fecha"]); ?></td>
+            <td>L. <?php echo number_format((float) $m["monto"], 2); ?></td>
+        </tr>
+        <?php endforeach; ?>
+        </table>
+        <p style="text-align:right; font-size:12px; color:#555; margin-top:2px;">Subtotal <?php echo htmlspecialchars($categoria); ?>: L. <?php echo number_format($g["subtotal"], 2); ?></p>
+    </div>
     <?php endforeach; ?>
-    </table>
     <p class="total-final">Total de gastos: L. <?php echo number_format($totalGeneral, 2); ?></p>
 
   <?php elseif ($tipo === "compras"): ?>
