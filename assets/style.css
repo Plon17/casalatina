@@ -4,17 +4,17 @@
    TODO (todas las páginas usan estas mismas variables).
    ========================================================= */
 :root {
-    --color-primary: #A8532E;        /* color de marca principal (terracota) */
-    --color-primary-dark: #6B4226;   /* variante oscura (texto, hover, acentos) */
-    --color-primary-light: #F3E8DC;  /* fondo suave con tinte de marca */
+    --color-primary: #DDA15E;        /* color de marca principal */
+    --color-primary-dark: #BC6C25;   /* variante oscura (texto, hover, acentos) */
+    --color-primary-light: #FAF0E1;  /* fondo suave con tinte de marca */
 
-    --color-text-dark: #2E2119;      /* texto principal oscuro */
-    --color-text-muted: #6B5D52;     /* texto secundario/gris cálido */
+    --color-text-dark: #4A3F35;      /* texto principal */
+    --color-text-muted: #8A7968;     /* texto secundario */
 
-    --color-bg: #F6F1EA;             /* fondo general de la página */
-    --color-topbar: #2E2119;         /* barra superior */
-    --color-surface-alt: #F5F2EE;    /* fondo alterno (encabezados de tabla, etc.) */
-    --color-border: #ddd;
+    --color-bg: #F5EBDD;             /* fondo general de la página */
+    --color-topbar: #BC6C25;         /* barra superior */
+    --color-surface-alt: #F1E5D3;    /* fondo alterno (encabezados de tabla, etc.) */
+    --color-border: #E0D3BE;         /* bordes */
 
     --color-danger: #C0392B;
     --color-danger-bg: #FDECEA;
