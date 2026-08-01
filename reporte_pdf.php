@@ -15,21 +15,18 @@ $hasta = $_GET["fecha_final"] ?? "";
 if (!$tipo || !$desde || !$hasta) { die("Faltan datos para generar el reporte."); }
 
 $titulos = [
-    "ventas"     => "Reporte de Ventas",
-    "gastos"     => "Reporte de Gastos",
-    "compras"    => "Reporte de Compras",
-    "resumen"    => "Resumen Financiero",
-    "top_platos" => "Platos Más Vendidos",
+    "ventas"      => "Reporte de Ventas",
+    "gastos"      => "Reporte de Gastos",
+    "compras"     => "Reporte de Compras",
+    "resumen"     => "Resumen Financiero",
+    "top_platos"  => "Platos Más Vendidos",
+    "metodo_pago" => "Cierre de Caja — Efectivo vs. Tarjeta",
 ];
 $tituloReporte = $titulos[$tipo] ?? "Reporte";
 
 // ---------- Datos según el tipo de reporte ----------
 $filas = [];
 $totalGeneral = 0;
-$ventas = 0.0;
-$gastos = 0.0;   
-$compras = 0.0;  
-$utilidad = 0.0; 
 
 if ($tipo === "ventas") {
     $stmt = $pdo->prepare("SELECT * FROM factura WHERE fecha_fac BETWEEN ? AND ? ORDER BY fecha_fac");
@@ -83,6 +80,27 @@ if ($tipo === "top_platos") {
     $stmt->execute([$desde, $hasta]);
     $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($filas as $f) { $totalGeneral += (float) $f["ingreso_total"]; }
+}
+
+if ($tipo === "metodo_pago") {
+    $stmt = $pdo->prepare("SELECT f.ID_Factura, f.fecha_fac, f.nombre_cliente, f.total, p.metodo_pago
+                            FROM factura f JOIN pedido p ON p.ID_Pedido = f.ID_Pedido
+                            WHERE f.fecha_fac BETWEEN ? AND ?
+                            ORDER BY p.metodo_pago, f.fecha_fac");
+    $stmt->execute([$desde, $hasta]);
+    $filas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $totalEfectivo = 0; $totalTarjeta = 0; $countEfectivo = 0; $countTarjeta = 0;
+    foreach ($filas as $f) {
+        if (($f["metodo_pago"] ?? "Efectivo") === "Tarjeta") {
+            $totalTarjeta += (float) $f["total"];
+            $countTarjeta++;
+        } else {
+            $totalEfectivo += (float) $f["total"];
+            $countEfectivo++;
+        }
+    }
+    $totalGeneral = $totalEfectivo + $totalTarjeta;
 }
 
 // ---------- HTML del reporte ----------
@@ -165,8 +183,8 @@ ob_start();
   <?php elseif ($tipo === "resumen"): ?>
     <table class="resumen-tabla">
         <tr><td>Ventas (facturación)</td><td align="right">L. <?php echo number_format($ventas, 2); ?></td></tr>
-        <tr><td>Gastos</td><td align="right">- L. <?php echo number_format($gastos, 2); ?></td></tr>
-        <tr><td>Compras a proveedores</td><td align="right">- L. <?php echo number_format($compras, 2); ?></td></tr>
+        <tr><td>Gastos</td><td align="right">− L. <?php echo number_format($gastos, 2); ?></td></tr>
+        <tr><td>Compras a proveedores</td><td align="right">− L. <?php echo number_format($compras, 2); ?></td></tr>
         <tr class="utilidad"><td>Utilidad neta del período</td><td align="right">L. <?php echo number_format($utilidad, 2); ?></td></tr>
     </table>
 
@@ -184,6 +202,30 @@ ob_start();
     <?php endforeach; ?>
     </table>
     <p class="total-final">Ingreso total generado por estos platos: L. <?php echo number_format($totalGeneral, 2); ?></p>
+
+  <?php elseif ($tipo === "metodo_pago"): ?>
+    <table class="resumen-tabla" style="width:360px;">
+        <tr><td>💵 Efectivo</td><td align="right">L. <?php echo number_format($totalEfectivo, 2); ?></td></tr>
+        <tr><td colspan="2" style="color:#888; font-size:11px; padding-top:0;"><?php echo $countEfectivo; ?> factura(s)</td></tr>
+        <tr><td>💳 Tarjeta</td><td align="right">L. <?php echo number_format($totalTarjeta, 2); ?></td></tr>
+        <tr><td colspan="2" style="color:#888; font-size:11px; padding-top:0;"><?php echo $countTarjeta; ?> factura(s)</td></tr>
+        <tr class="utilidad"><td>Total ventas</td><td align="right">L. <?php echo number_format($totalGeneral, 2); ?></td></tr>
+    </table>
+    <p style="text-align:center; color:#666; margin-top:10px;">El efectivo esperado en caja al cierre es <strong>L. <?php echo number_format($totalEfectivo, 2); ?></strong> (sin contar el fondo inicial de caja).</p>
+
+    <table class="items" style="margin-top:18px;">
+    <tr><th>ID Factura</th><th>Fecha</th><th>Cliente</th><th>Método</th><th>Total</th></tr>
+    <?php if (count($filas) === 0): ?><tr><td colspan="5">No hay ventas en este período.</td></tr><?php endif; ?>
+    <?php foreach ($filas as $f): ?>
+    <tr>
+        <td><?php echo htmlspecialchars($f["ID_Factura"]); ?></td>
+        <td><?php echo htmlspecialchars($f["fecha_fac"]); ?></td>
+        <td><?php echo htmlspecialchars($f["nombre_cliente"]); ?></td>
+        <td><?php echo htmlspecialchars($f["metodo_pago"] ?? "Efectivo"); ?></td>
+        <td>L. <?php echo number_format((float) $f["total"], 2); ?></td>
+    </tr>
+    <?php endforeach; ?>
+    </table>
   <?php endif; ?>
 
   <p class="footer">Generado el <?php echo date("Y-m-d H:i"); ?></p>

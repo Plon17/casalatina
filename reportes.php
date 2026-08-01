@@ -11,11 +11,12 @@ $titulo_pagina = "REPORTES";
 require_once __DIR__ . "/includes/layout_top.php";
 
 $tiposReporte = [
-    "ventas"     => ["Ventas", "Ingresos por facturación en el período"],
-    "gastos"     => ["Gastos", "Gastos registrados, agrupados por categoría"],
-    "compras"    => ["Compras", "Compras hechas a proveedores"],
-    "resumen"    => ["Resumen Financiero", "Ventas vs. Gastos vs. Compras — utilidad del período"],
-    "top_platos" => ["Platos Más Vendidos", "Ranking de platos por cantidad e ingreso generado"],
+    "ventas"      => ["Ventas", "Ingresos por facturación en el período"],
+    "gastos"      => ["Gastos", "Gastos registrados, agrupados por categoría"],
+    "compras"     => ["Compras", "Compras hechas a proveedores"],
+    "resumen"     => ["Resumen Financiero", "Ventas vs. Gastos vs. Compras — utilidad del período"],
+    "top_platos"  => ["Platos Más Vendidos", "Ranking de platos por cantidad e ingreso generado"],
+    "metodo_pago" => ["Cierre de Caja", "Ventas separadas por Efectivo vs. Tarjeta"],
 ];
 ?>
 
