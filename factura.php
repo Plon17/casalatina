@@ -2,19 +2,14 @@
 $modulo_actual = "factura";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
-require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
 
 // Las facturas ya no se escriben a mano: se generan solas al cobrar un pedido
 // (ver pedido_cobro.php). Esta pantalla es el historial: buscar, ver e imprimir.
-
-if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "borrar") {
-    $pdo->prepare("DELETE FROM factura WHERE ID_Factura = ?")->execute([$_POST["id_factura"]]);
-    $mensaje = "Factura eliminada.";
-    registrarAuditoria($pdo, "factura", "Factura eliminada", $_POST["id_factura"]);
-}
+// No se permite borrar facturas: es un registro contable/legal, borrar
+// documentos de ese tipo es mala práctica — se conservan todas.
 
 $verId = $_GET["ver"] ?? null;
 
@@ -30,13 +25,16 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:150px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 
 .factura-header{text-align:center;margin-bottom:14px;}
 .factura-linea{border-top:1px dashed #999;margin:10px 0;}
 .factura-fila{display:flex;justify-content:space-between;padding:2px 0;}
 .factura-total{font-weight:bold;font-size:16px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600; margin-right:6px;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 </style>
 
 <p class="titulo-modulo">Factura</p>
@@ -157,13 +155,8 @@ require_once __DIR__ . "/includes/layout_top.php";
         <td><?php echo htmlspecialchars($f["fecha_fac"]); ?></td>
         <td><?php echo number_format((float) $f["total"], 2); ?></td>
         <td>
-            <a href="factura.php?ver=<?php echo urlencode($f['ID_Factura']); ?>">Ver</a> ·
-            <a href="factura_pdf.php?id=<?php echo urlencode($f['ID_Factura']); ?>" target="_blank">PDF</a>
-            <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar esta factura? Esto no cancela ni afecta el pedido.');">
-                <input type="hidden" name="accion" value="borrar">
-                <input type="hidden" name="id_factura" value="<?php echo htmlspecialchars($f["ID_Factura"]); ?>">
-                <button type="submit">Borrar</button>
-            </form>
+            <a class="btn-link" href="factura.php?ver=<?php echo urlencode($f['ID_Factura']); ?>">Ver</a>
+            <a class="btn-link" href="factura_pdf.php?id=<?php echo urlencode($f['ID_Factura']); ?>" target="_blank">PDF</a>
         </td>
     </tr>
     <?php endforeach; ?>

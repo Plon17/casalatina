@@ -38,11 +38,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     if ($_POST["accion"] === "editar") {
         $pdo->beginTransaction();
         try {
+            // Traemos precio y receta anteriores para poder marcarlo en la auditoría si cambiaron
+            $stmtAnterior = $pdo->prepare("SELECT precio FROM menu WHERE ID_Menu = ?");
+            $stmtAnterior->execute([$_POST["id_menu"]]);
+            $precioAnterior = $stmtAnterior->fetch()["precio"] ?? null;
+
+            $stmtRecetaAnterior = $pdo->prepare("SELECT ID_Producto, cantidad_necesaria FROM menu_ingredientes WHERE ID_Menu = ? ORDER BY ID_Producto");
+            $stmtRecetaAnterior->execute([$_POST["id_menu"]]);
+            $recetaAnteriorNorm = [];
+            foreach ($stmtRecetaAnterior->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $recetaAnteriorNorm[$r["ID_Producto"]] = (float) $r["cantidad_necesaria"];
+            }
+            ksort($recetaAnteriorNorm);
+
             $stmt = $pdo->prepare("UPDATE menu SET nombre=?, precio=?, tipo=?, descripcion_men=? WHERE ID_Menu=?");
             $stmt->execute([$_POST["nombre"], $_POST["precio"], $_POST["tipo"], $_POST["descripcion"], $_POST["id_menu"]]);
             guardarIngredientes($pdo, $_POST["id_menu"], $_POST["ingredientes_json"] ?? "[]");
             $pdo->commit();
             $mensaje = "Item actualizado correctamente.";
+
+            $detalleAudit = $_POST["id_menu"] . " - " . $_POST["nombre"];
+            if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
+                $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
+            }
+
+            $recetaNuevaNorm = [];
+            foreach (json_decode($_POST["ingredientes_json"] ?? "[]", true) ?: [] as $ing) {
+                if (!empty($ing["id_producto"])) {
+                    $recetaNuevaNorm[$ing["id_producto"]] = (float) ($ing["cantidad"] ?? 0);
+                }
+            }
+            ksort($recetaNuevaNorm);
+            if ($recetaAnteriorNorm !== $recetaNuevaNorm) {
+                $detalleAudit .= " — receta modificada";
+            }
+
+            registrarAuditoria($pdo, "menu", "Item editado", $detalleAudit);
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error al actualizar: " . $e->getMessage();
@@ -61,7 +92,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         } catch (PDOException $e) {
             if ($e->getCode() === "23000") {
                 $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
-                $mensaje = "Este plato ya se usó en algún pedido, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
+                $mensaje = "Este plato ya se usó en algún pedido. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
                 registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
             } else {
                 $error = "Error al eliminar: " . $e->getMessage();
@@ -112,11 +143,11 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.receta-badge{background:#e8f4ea;color:#2f6b3d;padding:1px 8px;border-radius:10px;font-size:12px;}
-.receta-vacia{background:#f5f5f5;color:#888;padding:1px 8px;border-radius:10px;font-size:12px;}
+.receta-badge{background:var(--color-success-bg);color:var(--color-success);padding:1px 8px;border-radius:10px;font-size:12px;}
+.receta-vacia{background:var(--color-surface-alt);color:#888;padding:1px 8px;border-radius:10px;font-size:12px;}
 </style>
 
 <p class="titulo-modulo">Menú</p>
@@ -162,10 +193,10 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
         <?php if ($it["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item?');">
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este item?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">

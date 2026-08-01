@@ -2,6 +2,7 @@
 $modulo_actual = "gastos";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -17,6 +18,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
         $stmt = $pdo->prepare("INSERT INTO gastos (ID_gastos, nombre, tipo, descripcion) VALUES (?,?,?,?)");
         $stmt->execute([$idGasto, $_POST["nombre"], $_POST["tipo"], $_POST["descripcion"]]);
         $mensaje = "Categoría de gasto registrada.";
+        registrarAuditoria($pdo, "gastos", "Categoría de gasto creada", "$idGasto - " . $_POST["nombre"]);
     }
 }
 
@@ -31,6 +33,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
         $stmt = $pdo->prepare("INSERT INTO gastos_detalles (ID_detg, fecha, monto, ID_gastos) VALUES (?,?,?,?)");
         $stmt->execute([$idDetg, $_POST["fecha"], $_POST["monto"], $idGastos]);
         $mensaje = "Detalle de gasto registrado.";
+        registrarAuditoria($pdo, "gastos", "Gasto registrado", "$idDetg — $idGastos (L. " . $_POST["monto"] . ")");
     }
 }
 
@@ -68,11 +71,11 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:80px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.fila-seleccionada{background:#fdf1e6;}
+.fila-seleccionada{background:var(--color-primary-light);}
 .fila-clic{cursor:pointer;}
-.fila-clic:hover{background:#f7f2ea;}
+.fila-clic:hover{background:var(--color-primary-light);}
 </style>
 
 <p class="titulo-modulo">Gastos</p>
@@ -84,9 +87,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Categorías de gasto</h3>
 <table class="pd-tabla">
-<tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Total acumulado</th></tr>
+<tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Descripción</th><th>Total acumulado</th></tr>
 <?php if (count($gastos) === 0): ?>
-<tr><td colspan="4">Todavía no hay categorías de gasto registradas.</td></tr>
+<tr><td colspan="5">Todavía no hay categorías de gasto registradas.</td></tr>
 <?php endif; ?>
 <?php foreach ($gastos as $g): ?>
 <tr class="fila-clic <?php echo ($gastoActual && $g['ID_gastos'] === $gastoActual['ID_gastos']) ? 'fila-seleccionada' : ''; ?>"
@@ -94,6 +97,9 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td><?php echo htmlspecialchars($g["ID_gastos"]); ?></td>
     <td><?php echo htmlspecialchars($g["nombre"]); ?></td>
     <td><?php echo htmlspecialchars($g["tipo"]); ?></td>
+    <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($g["descripcion"] ?? ''); ?>">
+        <?php echo htmlspecialchars($g["descripcion"] ?: "—"); ?>
+    </td>
     <td><?php echo number_format((float) $g["total"], 2); ?></td>
 </tr>
 <?php endforeach; ?>

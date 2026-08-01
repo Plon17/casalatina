@@ -3,15 +3,19 @@ $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 
+// Ajusta este número según cuántas mesas físicas tenga el local
 $totalMesas = 12;
 
-
+// Posiciones [izquierda%, arriba%] de cada mesa dentro del plano.
+// Si agregas más mesas que las que tienen posición definida aquí,
+// se acomodan solas en una cuadrícula de respaldo más abajo.
 $posicionesMesas = [
-    1 => [19, 15],  2 => [35, 15],  3 => [51, 15],  4 => [67, 15],
-    5 => [19, 42],  6 => [35, 42],  7 => [51, 42],  8 => [67, 42],
-    9 => [19, 68], 10 => [35, 68], 11 => [51, 68], 12 => [67, 68],
+    1 => [20, 15], 2 => [35, 15], 3 => [50, 15], 4 => [65, 15],
+    5 => [20, 42], 6 => [35, 42], 7 => [50, 42], 8 => [65, 42],
+    9 => [20, 68], 10 => [40, 68], 11 => [55, 68], 12 => [70, 68],
 ];
 
+// Pedidos de mesa activos, indexados por número de mesa
 $mesasActivas = [];
 foreach ($pdo->query("SELECT ID_Pedido, num_mesa, estado, total FROM pedido
                        WHERE tipo_ped='Mesa' AND estado IN ('Abierto','EnCocina')")->fetchAll(PDO::FETCH_ASSOC) as $m) {
@@ -39,22 +43,22 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 
 .mesas-leyenda{display:flex;gap:20px;margin-top:16px;font-size:13px;color:#444;flex-wrap:wrap;}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;}
-.dot-libre{background:#5cb85c;}
-.dot-armando{background:#f0ad4e;}
-.dot-cocina{background:#4a90d9;}
+.dot-libre{background:var(--color-mesa-libre);}
+.dot-armando{background:var(--color-mesa-armando);}
+.dot-cocina{background:var(--color-mesa-cocina);}
 
 .floor-plan{position:relative;width:100%;min-height:520px;margin-top:6px;
     background:repeating-linear-gradient(45deg,#ecdfc4,#ecdfc4 20px,#e2d3ae 20px,#e2d3ae 40px);
-    border:10px solid #7a5230;border-radius:8px;overflow:hidden;
+    border:10px solid var(--color-primary-dark);border-radius:8px;overflow:hidden;
     box-shadow:inset 0 0 40px rgba(0,0,0,.15);}
 
 .zona-cocina{position:absolute;top:0;right:0;width:18%;height:100%;
     background:repeating-linear-gradient(135deg,#c7c7c7,#c7c7c7 10px,#b0b0b0 10px,#b0b0b0 20px);
-    border-left:6px solid #7a5230;display:flex;align-items:center;justify-content:center;}
+    border-left:6px solid var(--color-primary-dark);display:flex;align-items:center;justify-content:center;}
 .zona-cocina span{writing-mode:vertical-rl;font-weight:700;color:#555;letter-spacing:3px;font-size:13px;}
 
 .zona-barra{position:absolute;top:6%;left:0;width:8%;height:40%;
@@ -62,11 +66,11 @@ require_once __DIR__ . "/includes/layout_top.php";
     display:flex;align-items:center;justify-content:center;}
 .zona-barra span{writing-mode:vertical-rl;color:#fff;font-weight:700;font-size:12px;letter-spacing:2px;}
 
-.zona-entrada{position:absolute;bottom:0;left:42%;width:16%;height:14px;background:#7a5230;border-radius:6px 6px 0 0;}
-.zona-entrada-label{position:absolute;bottom:16px;left:42%;width:16%;text-align:center;font-size:11px;color:#7a5230;font-weight:700;}
+.zona-entrada{position:absolute;bottom:0;left:42%;width:16%;height:14px;background:var(--color-primary-dark);border-radius:6px 6px 0 0;}
+.zona-entrada-label{position:absolute;bottom:16px;left:42%;width:16%;text-align:center;font-size:11px;color:var(--color-primary-dark);font-weight:700;}
 
 .mesa-wrap{position:absolute;width:90px;height:90px;transform:translate(-50%,-50%);}
-.mesa-wrap .silla{position:absolute;width:14px;height:14px;border-radius:3px;background:#7a5230;opacity:.75;}
+.mesa-wrap .silla{position:absolute;width:14px;height:14px;border-radius:3px;background:var(--color-primary-dark);opacity:.75;}
 .silla.n{top:-10px;left:38px;}
 .silla.s{bottom:-10px;left:38px;}
 .silla.e{right:-10px;top:38px;}
@@ -81,9 +85,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 .mesa-box .mesa-estado{font-size:10px;font-weight:400;}
 .mesa-box .mesa-total{font-size:10px;font-weight:400;opacity:.9;}
 
-.mesa-libre{background:#5cb85c;}
-.mesa-armando{background:#f0ad4e;}
-.mesa-cocina{background:#4a90d9;}
+.mesa-libre{background:var(--color-mesa-libre);}
+.mesa-armando{background:var(--color-mesa-armando);}
+.mesa-cocina{background:var(--color-mesa-cocina);}
 </style>
 
 <p class="titulo-modulo">Mesas / Pedidos activos</p>

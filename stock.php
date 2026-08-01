@@ -18,12 +18,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                 $_POST["precio"], $_POST["categoria"], $_POST["id_proveedor"] ?: null
             ]);
             $mensaje = "Producto agregado.";
+            registrarAuditoria($pdo, "stock", "Producto agregado", $_POST["id_producto"] . " - " . $_POST["nombre"] . " (cantidad inicial: " . $_POST["cantidad"] . ")");
         } catch (Exception $e) {
             $error = "Error al agregar el producto (¿el ID ya existe?): " . $e->getMessage();
         }
     }
 
     if ($_POST["accion"] === "editar") {
+        // Traemos cantidad y precio anteriores para poder marcar en la auditoría si
+        // alguien los cambió a mano (fuera del flujo normal de Compras)
+        $stmtAnterior = $pdo->prepare("SELECT cantidad_pro, precio_pro FROM producto WHERE ID_Producto = ?");
+        $stmtAnterior->execute([$_POST["id_producto"]]);
+        $anterior = $stmtAnterior->fetch();
+        $cantidadAnterior = $anterior["cantidad_pro"] ?? null;
+        $precioAnterior = $anterior["precio_pro"] ?? null;
+
         $stmt = $pdo->prepare("UPDATE producto SET nombre_pro=?, cantidad_pro=?, precio_pro=?, categoria_pro=?, ID_prov=?
                                 WHERE ID_Producto=?");
         $stmt->execute([
@@ -31,6 +40,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
             $_POST["categoria"], $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
         ]);
         $mensaje = "Producto actualizado.";
+
+        $detalleAudit = $_POST["id_producto"] . " - " . $_POST["nombre"];
+        if ($cantidadAnterior !== null && (float) $cantidadAnterior !== (float) $_POST["cantidad"]) {
+            $detalleAudit .= " — cantidad cambiada manualmente de $cantidadAnterior a " . $_POST["cantidad"];
+        }
+        if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
+            $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
+        }
+        registrarAuditoria($pdo, "stock", "Producto editado", $detalleAudit);
     }
 
     if ($_POST["accion"] === "eliminar") {
@@ -54,9 +72,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                 $stmtRecetas->execute([$_POST["id_producto"]]);
                 $platos = array_column($stmtRecetas->fetchAll(PDO::FETCH_ASSOC), "nombre");
 
-                $mensaje = "Este producto ya se usó en compras o recetas, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece para comprar más ni para armar recetas nuevas.";
+                $mensaje = "Se marcó como inactivo: ya no aparece para comprar más ni para armar recetas nuevas.";
                 if ($platos) {
-                    $mensaje .= " Ojo: todavía lo usan estos platos activos: " . implode(", ", $platos) . ". Sus recetas lo van a seguir consumiendo normalmente; edítalas si ya no corresponde.";
+                    $mensaje .= " Todavía lo usan estos platos activos: " . implode(", ", $platos) . ".";
                 }
                 registrarAuditoria($pdo, "stock", "Producto desactivado", $_POST["id_producto"]);
             } else {
@@ -83,9 +101,12 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Productos con cantidad baja (para el listado de "compras a realizar")
 // Los inactivos no entran aquí: ya no se van a comprar más.
-$bajos = $pdo->query("SELECT * FROM producto WHERE cantidad_pro <= 5 AND activo = 1")->fetchAll(PDO::FETCH_ASSOC);
+$bajos = $pdo->query("SELECT prod.*, pv.nom_prov, pv.tel_prov
+                       FROM producto prod
+                       LEFT JOIN proveedores pv ON pv.ID_prov = prod.ID_prov
+                       WHERE prod.cantidad_pro <= 5 AND prod.activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
-$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores")->fetchAll(PDO::FETCH_ASSOC);
+$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "STOCK";
 require_once __DIR__ . "/includes/layout_top.php";
@@ -100,10 +121,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.fila-bajo{background:#fdecea;}
-.badge-bajo{background:#e74c3c;color:#fff;padding:1px 6px;border-radius:4px;font-size:12px;margin-left:6px;}
+.fila-bajo{background:var(--color-danger-bg);}
+.badge-bajo{background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:4px;font-size:12px;margin-left:6px;}
 </style>
 
 <p class="titulo-modulo">Inventario General</p>
@@ -137,10 +158,10 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
         <?php if ($p["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este producto?');">
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este producto?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">
@@ -205,15 +226,22 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Productos con poco stock (posibles compras a realizar)</h3>
 <table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th></tr>
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Proveedor a contactar</th></tr>
 <?php if (count($bajos) === 0): ?>
-<tr><td colspan="3">Todo el inventario está en buen nivel.</td></tr>
+<tr><td colspan="4">Todo el inventario está en buen nivel.</td></tr>
 <?php endif; ?>
 <?php foreach ($bajos as $b): ?>
 <tr class="fila-bajo">
     <td><?php echo htmlspecialchars($b["ID_Producto"]); ?></td>
     <td><?php echo htmlspecialchars($b["nombre_pro"]); ?></td>
     <td><?php echo htmlspecialchars($b["cantidad_pro"]); ?></td>
+    <td>
+        <?php if ($b["nom_prov"]): ?>
+            <?php echo htmlspecialchars($b["nom_prov"]); ?><?php echo $b["tel_prov"] ? " — " . htmlspecialchars($b["tel_prov"]) : ""; ?>
+        <?php else: ?>
+            <span style="color:#999;">sin proveedor asignado</span>
+        <?php endif; ?>
+    </td>
 </tr>
 <?php endforeach; ?>
 </table>

@@ -2,6 +2,7 @@
 $modulo_actual = "compras";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -11,6 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
     $idProducto = $_POST["id_producto"] ?? "";
     $cantidad = (float) ($_POST["cantidad"] ?? 0);
     $monto = $_POST["monto"] ?? "";
+    $idProv = $_POST["id_prov"] ?: null;
 
     if (!$idProducto || $cantidad <= 0) {
         $error = "Selecciona un producto (usando el buscador) y una cantidad válida.";
@@ -20,9 +22,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
             $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM compras")->fetch()["c"] + 1;
             $idCompra = "C" . str_pad($n, 6, "0", STR_PAD_LEFT);
 
-            $stmt = $pdo->prepare("INSERT INTO compras (ID_compras, ID_Producto, fecha, cantidad, monto_total)
-                                    VALUES (?,?,?,?,?)");
-            $stmt->execute([$idCompra, $idProducto, $_POST["fecha"], $cantidad, $monto]);
+            $stmt = $pdo->prepare("INSERT INTO compras (ID_compras, ID_Producto, fecha, cantidad, monto_total, ID_prov)
+                                    VALUES (?,?,?,?,?,?)");
+            $stmt->execute([$idCompra, $idProducto, $_POST["fecha"], $cantidad, $monto, $idProv]);
 
             // Conectamos automáticamente la compra con el stock
             $stmt2 = $pdo->prepare("UPDATE producto SET cantidad_pro = cantidad_pro + ? WHERE ID_Producto = ?");
@@ -30,6 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
 
             $pdo->commit();
             $mensaje = "Compra #$idCompra registrada. Stock actualizado (+$cantidad unidades).";
+            registrarAuditoria($pdo, "compras", "Compra registrada", "$idCompra — $idProducto x$cantidad (L. $monto)" . ($idProv ? " — proveedor: $idProv" : ""));
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error al registrar la compra: " . $e->getMessage();
@@ -37,11 +40,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
     }
 }
 
-$productos = $pdo->query("SELECT ID_Producto, nombre_pro, precio_pro, cantidad_pro FROM producto WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
+$productos = $pdo->query("SELECT ID_Producto, nombre_pro, precio_pro, cantidad_pro, ID_prov FROM producto WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
+$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1 ORDER BY nom_prov")->fetchAll(PDO::FETCH_ASSOC);
 
-$compras = $pdo->query("SELECT c.*, p.nombre_pro
+$compras = $pdo->query("SELECT c.*, p.nombre_pro, pv.nom_prov
                          FROM compras c
                          LEFT JOIN producto p ON p.ID_Producto = c.ID_Producto
+                         LEFT JOIN proveedores pv ON pv.ID_prov = c.ID_prov
                          ORDER BY c.fecha DESC, c.ID_compras DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "COMPRAS";
@@ -57,7 +62,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 </style>
@@ -94,6 +99,17 @@ require_once __DIR__ . "/includes/layout_top.php";
         <div class="pd-field" style="flex:1;"><label>Producto seleccionado</label><input type="text" id="nombre_producto" readonly></div>
         <div class="pd-field chico"><label>Cantidad</label><input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" value="1" oninput="calcularMonto()" required></div>
         <div class="pd-field"><label>Monto total</label><input type="number" step="0.01" name="monto" id="monto" required></div>
+        <div class="pd-field">
+            <label>Proveedor de esta compra</label>
+            <select name="id_prov" id="id_prov">
+                <option value="">-- ninguno --</option>
+                <?php foreach ($proveedores as $pr): ?>
+                <option value="<?php echo htmlspecialchars($pr["ID_prov"]); ?>">
+                    <?php echo htmlspecialchars($pr["ID_prov"] . " - " . $pr["nom_prov"]); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
     </div>
 
     <div class="pd-actions">
@@ -105,14 +121,15 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Historial de compras</h3>
 <table class="pd-tabla">
-<tr><th>ID Compra</th><th>Producto</th><th>Fecha</th><th>Cantidad</th><th>Monto</th></tr>
+<tr><th>ID Compra</th><th>Producto</th><th>Proveedor</th><th>Fecha</th><th>Cantidad</th><th>Monto</th></tr>
 <?php if (count($compras) === 0): ?>
-<tr><td colspan="5">Todavía no hay compras registradas.</td></tr>
+<tr><td colspan="6">Todavía no hay compras registradas.</td></tr>
 <?php endif; ?>
 <?php foreach ($compras as $c): ?>
 <tr>
     <td><?php echo htmlspecialchars($c["ID_compras"]); ?></td>
     <td><?php echo htmlspecialchars(($c["nombre_pro"] ?? "(producto eliminado)") . " — " . $c["ID_Producto"]); ?></td>
+    <td><?php echo htmlspecialchars($c["nom_prov"] ?? "—"); ?></td>
     <td><?php echo htmlspecialchars($c["fecha"]); ?></td>
     <td><?php echo htmlspecialchars($c["cantidad"]); ?></td>
     <td><?php echo number_format((float) $c["monto_total"], 2); ?></td>
@@ -147,6 +164,14 @@ function seleccionarProducto(p) {
     document.getElementById("tablaResultados").innerHTML = "<tr><th>ID</th><th>Nombre</th><th>Precio ref.</th><th>Stock actual</th></tr>";
     precioSeleccionado = parseFloat(p.precio_pro) || 0;
     calcularMonto();
+
+    // Autocompleta el proveedor asignado a este producto (se puede cambiar si compraste a otro)
+    const selectProv = document.getElementById("id_prov");
+    if (p.ID_prov) {
+        selectProv.value = p.ID_prov;
+    } else {
+        selectProv.value = "";
+    }
 }
 
 function calcularMonto() {
