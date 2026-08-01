@@ -61,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         } catch (PDOException $e) {
             if ($e->getCode() === "23000") {
                 $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
-                $mensaje = "Este plato ya se usó en algún pedido, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
+                $mensaje = "Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
                 registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
             } else {
                 $error = "Error al eliminar: " . $e->getMessage();
@@ -165,7 +165,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">
