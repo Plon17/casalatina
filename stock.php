@@ -56,7 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
                 $mensaje = "Se marcó como inactivo: ya no aparece para comprar más ni para armar recetas nuevas.";
                 if ($platos) {
-                    $mensaje .= "Todavía lo usan estos platos activos: " . implode(", ", $platos) . ". Sus recetas lo van a seguir consumiendo normalmente";
+                    $mensaje .= " Todavía lo usan estos platos activos: " . implode(", ", $platos) . ".";
                 }
                 registrarAuditoria($pdo, "stock", "Producto desactivado", $_POST["id_producto"]);
             } else {
@@ -100,10 +100,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.fila-bajo{background:#fdecea;}
-.badge-bajo{background:#e74c3c;color:#fff;padding:1px 6px;border-radius:4px;font-size:12px;margin-left:6px;}
+.fila-bajo{background:var(--color-danger-bg);}
+.badge-bajo{background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:4px;font-size:12px;margin-left:6px;}
 </style>
 
 <p class="titulo-modulo">Inventario General</p>
@@ -137,7 +137,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
         <?php if ($p["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este producto?');">
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este producto?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
             <button type="submit">DESACTIVAR</button>

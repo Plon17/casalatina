@@ -4,6 +4,7 @@ $modulo_actual = "reporte";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 require_once __DIR__ . "/vendor/autoload.php";
+require_once __DIR__ . "/includes/tema.php";
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -120,14 +121,14 @@ ob_start();
 <meta charset="UTF-8">
 <style>
   body { font-family: Helvetica, Arial, sans-serif; color: #222; font-size: 12px; }
-  .header { text-align: center; margin-bottom: 18px; border-bottom: 3px solid #C0563A; padding-bottom: 10px; }
-  .header h1 { margin: 0; font-size: 22px; color: #C0563A; }
+  .header { text-align: center; margin-bottom: 18px; border-bottom: 3px solid <?php echo COLOR_PRIMARIO; ?>; padding-bottom: 10px; }
+  .header h1 { margin: 0; font-size: 22px; color: <?php echo COLOR_PRIMARIO; ?>; }
   .header p { margin: 2px 0; color: #666; }
   .header .titulo-reporte { margin-top: 8px; font-weight: bold; font-size: 16px; color: #333; }
   .rango { text-align:center; color:#666; margin-bottom:18px; }
   table.items { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
   table.items th, table.items td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; font-size: 11px; }
-  table.items th { background: #f7ead9; color: #7a5230; }
+  table.items th { background: <?php echo COLOR_PRIMARIO_CLARO; ?>; color: <?php echo COLOR_PRIMARIO_OSCURO; ?>; }
   .resumen-tabla { width: 320px; margin: 0 auto; }
   .resumen-tabla td { padding: 6px 4px; font-size: 13px; }
   .resumen-tabla .utilidad td { font-weight: bold; font-size: 16px; border-top: 2px solid #333; padding-top: 10px; }

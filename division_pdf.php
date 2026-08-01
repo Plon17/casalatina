@@ -5,6 +5,7 @@ $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 require_once __DIR__ . "/vendor/autoload.php";
+require_once __DIR__ . "/includes/tema.php";
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -35,12 +36,12 @@ ob_start();
 <meta charset="UTF-8">
 <style>
   body { font-family: Helvetica, Arial, sans-serif; color: #222; font-size: 14px; }
-  .header { text-align: center; margin-bottom: 18px; border-bottom: 3px solid #C0563A; padding-bottom: 10px; }
-  .header h1 { margin: 0; font-size: 22px; color: #C0563A; }
+  .header { text-align: center; margin-bottom: 18px; border-bottom: 3px solid <?php echo COLOR_PRIMARIO; ?>; padding-bottom: 10px; }
+  .header h1 { margin: 0; font-size: 22px; color: <?php echo COLOR_PRIMARIO; ?>; }
   .header p { margin: 3px 0; color: #666; }
   table { width: 100%; border-collapse: collapse; margin-top: 14px; }
   th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; }
-  th { background: #f7ead9; color: #7a5230; }
+  th { background: <?php echo COLOR_PRIMARIO_CLARO; ?>; color: <?php echo COLOR_PRIMARIO_OSCURO; ?>; }
   .resumen { margin-top: 10px; font-size: 13px; color: #555; }
 </style>
 </head>

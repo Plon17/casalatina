@@ -61,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         } catch (PDOException $e) {
             if ($e->getCode() === "23000") {
                 $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
-                $mensaje = "Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
+                $mensaje = "Este plato ya se usó en algún pedido. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
                 registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
             } else {
                 $error = "Error al eliminar: " . $e->getMessage();
@@ -112,11 +112,11 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.receta-badge{background:#e8f4ea;color:#2f6b3d;padding:1px 8px;border-radius:10px;font-size:12px;}
-.receta-vacia{background:#f5f5f5;color:#888;padding:1px 8px;border-radius:10px;font-size:12px;}
+.receta-badge{background:var(--color-success-bg);color:var(--color-success);padding:1px 8px;border-radius:10px;font-size:12px;}
+.receta-vacia{background:var(--color-surface-alt);color:#888;padding:1px 8px;border-radius:10px;font-size:12px;}
 </style>
 
 <p class="titulo-modulo">Menú</p>
@@ -162,7 +162,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
         <?php if ($it["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item?');">
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este item?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
             <button type="submit">DESACTIVAR</button>

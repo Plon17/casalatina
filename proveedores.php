@@ -69,10 +69,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:160px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
-.badge-prod{background:#eef3fb;color:#2c5aa0;padding:1px 8px;border-radius:10px;font-size:12px;}
-.badge-sin{background:#f5f5f5;color:#999;padding:1px 8px;border-radius:10px;font-size:12px;}
+.badge-prod{background:var(--color-info-bg);color:var(--color-info);padding:1px 8px;border-radius:10px;font-size:12px;}
+.badge-sin{background:var(--color-surface-alt);color:#999;padding:1px 8px;border-radius:10px;font-size:12px;}
 </style>
 
 <p class="titulo-modulo">Proveedores</p>

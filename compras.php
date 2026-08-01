@@ -57,7 +57,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 </style>

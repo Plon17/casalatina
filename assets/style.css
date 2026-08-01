@@ -1,13 +1,46 @@
+/* =========================================================
+   PALETA DE COLORES — un solo lugar para cambiar el esquema
+   completo del sistema. Cambia estos valores y se actualiza
+   TODO (todas las páginas usan estas mismas variables).
+   ========================================================= */
+:root {
+    --color-primary: #A8532E;        /* color de marca principal (terracota) */
+    --color-primary-dark: #6B4226;   /* variante oscura (texto, hover, acentos) */
+    --color-primary-light: #F3E8DC;  /* fondo suave con tinte de marca */
+
+    --color-text-dark: #2E2119;      /* texto principal oscuro */
+    --color-text-muted: #6B5D52;     /* texto secundario/gris cálido */
+
+    --color-bg: #F6F1EA;             /* fondo general de la página */
+    --color-topbar: #2E2119;         /* barra superior */
+    --color-surface-alt: #F5F2EE;    /* fondo alterno (encabezados de tabla, etc.) */
+    --color-border: #ddd;
+
+    --color-danger: #C0392B;
+    --color-danger-bg: #FDECEA;
+    --color-success: #2F7D3D;
+    --color-success-bg: #E8F4EA;
+    --color-info: #2C5AA0;
+    --color-info-bg: #EEF3FB;
+
+    /* Colores de estado de mesas (mapa de mesas) — se mantienen
+       semánticos (verde=libre, naranja=armando, azul=cocina)
+       independientemente del color de marca de arriba. */
+    --color-mesa-libre: #5CB85C;
+    --color-mesa-armando: #F0AD4E;
+    --color-mesa-cocina: #4A90D9;
+}
+
 body {
-    background: linear-gradient(135deg, #f57c1f 0%, #ffb347 100%);
+    background: var(--color-bg);
     font-family: Arial, sans-serif;
     margin: 0;
-    color: #111;
+    color: var(--color-text-dark);
     min-height: 100vh;
 }
 
 .topbar {
-    background: #000;
+    background: var(--color-topbar);
     color: #fff;
     padding: 16px;
     text-align: center;
@@ -30,7 +63,7 @@ body {
 
 .topbar a.volver:hover {
     background: #fff;
-    color: #000;
+    color: var(--color-topbar);
 }
 
 .container {
@@ -48,7 +81,7 @@ body {
 }
 
 h1, h2, h3 {
-    color: #111;
+    color: var(--color-text-dark);
 }
 
 .titulo-modulo {
@@ -77,24 +110,24 @@ label {
     font-weight: bold;
     display: block;
     margin-bottom: 8px;
-    color: #111;
+    color: var(--color-text-dark);
 }
 
 button, .btn {
-    background: #ffb347;
-    border: 1px solid #d46c00;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary-dark);
     padding: 12px 20px;
     border-radius: 8px;
     cursor: pointer;
     font-weight: bold;
-    color: #000;
+    color: #fff;
     text-decoration: none;
     display: inline-block;
     transition: background 0.2s ease;
 }
 
 button:hover, .btn:hover {
-    background: #ffc76b;
+    background: var(--color-primary-dark);
 }
 
 table {
@@ -112,7 +145,7 @@ table th, table td {
 }
 
 table th {
-    background: #f5f5f5;
+    background: var(--color-surface-alt);
 }
 
 .caja-blanca {
@@ -144,43 +177,7 @@ table th {
 
 .login-box h2 {
     margin-top: 0;
-    color: #111;
-    font-size: 24px;
-}
-
-.login-box form {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.login-box form label {
-    text-align: left;
-    margin-bottom: 0;
-}
-
-.login-box form input {
-    width: 100%;
-    max-width: 100%;
-}
-
-.login-box form button {
-    width: 100%;
-}
-
-.login-box {
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 12px;
-    padding: 40px;
-    text-align: center;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    min-width: 350px;
-}
-
-.login-box h2 {
-    margin-top: 0;
-    color: #111;
+    color: var(--color-text-dark);
     font-size: 24px;
 }
 
@@ -206,9 +203,9 @@ table th {
 
 .logo-box .marca {
     font-weight: bold;
-    color: #d4711f;
+    color: var(--color-primary);
     font-size: 20px;
-    border: 3px solid #d4711f;
+    border: 3px solid var(--color-primary);
     border-radius: 50%;
     padding: 20px 18px;
     display: inline-block;
@@ -219,12 +216,12 @@ table th {
 }
 
 .mensaje-error {
-    color: #c0392b;
+    color: var(--color-danger);
     font-weight: bold;
 }
 
 .mensaje-ok {
-    color: #1e6b1e;
+    color: var(--color-success);
     font-weight: bold;
 }
 

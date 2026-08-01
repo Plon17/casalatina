@@ -166,7 +166,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-totales{display:flex;gap:30px;flex-wrap:wrap;align-items:flex-end;margin-top:14px;}
 .pd-field{display:flex;flex-direction:column;gap:4px;}
 .pd-field label{font-size:13px;color:#444;}
@@ -174,7 +174,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-actions{margin-top:16px;display:flex;gap:10px;}
 .pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
-.ronda-tag{background:#eef3fb;color:#2c5aa0;padding:1px 8px;border-radius:10px;font-size:12px;}
+.ronda-tag{background:var(--color-info-bg);color:var(--color-info);padding:1px 8px;border-radius:10px;font-size:12px;}
 </style>
 
 <p class="titulo-modulo">Paso 2 de 3 — Revisar y enviar a cocina</p>
@@ -210,7 +210,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <form method="POST" onsubmit="return confirm('¿Seguro que deseas cancelar este pedido?');">
         <input type="hidden" name="accion" value="cancelar_pedido">
         <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
-        <button type="submit" style="background:#c0392b; color:#fff;">Cancelar este pedido</button>
+        <button type="submit" style="background:var(--color-danger); color:#fff;">Cancelar este pedido</button>
     </form>
 
     <form method="POST" id="formEnviar" style="display:none;">
@@ -312,7 +312,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <form method="POST" onsubmit="return confirm('¿Seguro que deseas cancelar este pedido?');">
         <input type="hidden" name="accion" value="cancelar_pedido">
         <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
-        <button type="submit" style="background:#c0392b; color:#fff;">Cancelar este pedido</button>
+        <button type="submit" style="background:var(--color-danger); color:#fff;">Cancelar este pedido</button>
     </form>
 
     <form method="POST" id="formAgregar" style="display:none;">

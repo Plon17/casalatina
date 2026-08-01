@@ -36,8 +36,8 @@ $tiposReporte = [
 }
 .tipo-opcion label strong{display:block;font-size:15px;color:#333;margin-bottom:4px;}
 .tipo-opcion label span{font-size:12px;color:#777;}
-.tipo-opcion input:checked + label{border-color:#C0563A;background:#fdf1e6;}
-.tipo-opcion input:checked + label strong{color:#C0563A;}
+.tipo-opcion input:checked + label{border-color:var(--color-primary);background:var(--color-primary-light);}
+.tipo-opcion input:checked + label strong{color:var(--color-primary);}
 </style>
 
 <p class="titulo-modulo">Reportes</p>

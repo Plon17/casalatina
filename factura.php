@@ -26,16 +26,16 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:150px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 
 .factura-header{text-align:center;margin-bottom:14px;}
 .factura-linea{border-top:1px dashed #999;margin:10px 0;}
 .factura-fila{display:flex;justify-content:space-between;padding:2px 0;}
 .factura-total{font-weight:bold;font-size:16px;}
-.btn-link{display:inline-block; padding:6px 14px; border:1px solid #C0563A; border-radius:5px;
-    color:#C0563A; text-decoration:none; font-size:13px; font-weight:600; margin-right:6px;}
-.btn-link:hover{background:#C0563A; color:#fff;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600; margin-right:6px;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 </style>
 
 <p class="titulo-modulo">Factura</p>

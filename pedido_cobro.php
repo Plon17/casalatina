@@ -129,7 +129,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
-.pd-tabla th{background:#f5f5f5;}
+.pd-tabla th{background:var(--color-surface-alt);}
 .pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
 .pd-field{display:flex;flex-direction:column;gap:4px;}
 .pd-field label{font-size:13px;color:#444;}
@@ -141,8 +141,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 @media (max-width: 640px){ .cobro-grid-3, .cobro-grid-2{grid-template-columns:1fr;} }
 .metodo-pago{display:flex; gap:12px;}
 .metodo-pago label{display:flex; align-items:center; gap:6px; border:1px solid #ccc; border-radius:6px; padding:8px 14px; cursor:pointer; font-size:14px; flex:1; justify-content:center;}
-.metodo-pago input:checked + span{font-weight:700; color:#C0563A;}
-.resumen-cobro{background:#faf5ef; border-radius:6px; padding:12px 16px; margin-top:10px; max-width:320px;}
+.metodo-pago input:checked + span{font-weight:700; color:var(--color-primary);}
+.resumen-cobro{background:var(--color-primary-light); border-radius:6px; padding:12px 16px; margin-top:10px; max-width:320px;}
 .resumen-cobro div{display:flex; justify-content:space-between; font-size:14px; padding:2px 0;}
 .resumen-cobro .total-final{font-weight:700; font-size:16px; border-top:1px solid #ddd; margin-top:6px; padding-top:6px;}
 </style>

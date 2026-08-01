@@ -6,6 +6,7 @@ $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
 require_once __DIR__ . "/vendor/autoload.php";
+require_once __DIR__ . "/includes/tema.php";
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -34,14 +35,14 @@ ob_start();
 <meta charset="UTF-8">
 <style>
   body { font-family: Helvetica, Arial, sans-serif; color: #222; font-size: 13px; }
-  .header { text-align: center; margin-bottom: 20px; border-bottom: 3px solid #C0563A; padding-bottom: 12px; }
-  .header h1 { margin: 0; font-size: 26px; color: #C0563A; letter-spacing: 1px; }
+  .header { text-align: center; margin-bottom: 20px; border-bottom: 3px solid <?php echo COLOR_PRIMARIO; ?>; padding-bottom: 12px; }
+  .header h1 { margin: 0; font-size: 26px; color: <?php echo COLOR_PRIMARIO; ?>; letter-spacing: 1px; }
   .header p { margin: 2px 0; color: #666; }
   table.info { width: 100%; margin-bottom: 16px; }
   table.info td { padding: 3px 0; vertical-align: top; font-size: 13px; }
   table.items { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
   table.items th, table.items td { border: 1px solid #ddd; padding: 7px 9px; text-align: left; font-size: 12px; }
-  table.items th { background: #f7ead9; color: #7a5230; }
+  table.items th { background: <?php echo COLOR_PRIMARIO_CLARO; ?>; color: <?php echo COLOR_PRIMARIO_OSCURO; ?>; }
   table.totales { width: 280px; margin-left: auto; margin-bottom: 20px; }
   table.totales td { padding: 4px 0; font-size: 13px; }
   table.totales .total-final td { font-weight: bold; font-size: 16px; border-top: 2px solid #333; padding-top: 8px; }
