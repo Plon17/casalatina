@@ -66,10 +66,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 ?>
 
 <style>
-.dash-layout{display:flex; gap:20px; align-items:flex-start;}
+.dash-layout{display:flex; gap:20px; align-items:stretch;}
 .dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px;
-    max-height:560px; display:flex; flex-direction:column;}
-.dash-sidebar-links{overflow-y:auto; flex:1;}
+    display:flex; flex-direction:column;}
+.dash-sidebar-links{overflow-y:auto; max-height:400px;}
 .dash-sidebar .menu-item{margin-bottom:8px;}
 .dash-sidebar .btn{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:6px;
     background:#faf5ef; border:1px solid #eee; text-decoration:none; color:#3A2A20; font-weight:600; font-size:14px;}
@@ -77,12 +77,16 @@ require_once __DIR__ . "/includes/layout_top.php";
 .dash-sidebar .icono{font-size:18px;}
 .dash-main{flex:1; min-width:0;}
 
-.sesion-card{border-top:1px solid #eee; margin-top:12px; padding-top:14px; text-align:center;}
+.sesion-card{border-top:1px solid #eee; margin-top:auto; padding-top:14px; text-align:center;}
 .sesion-avatar{width:44px; height:44px; border-radius:50%; background:#C0563A; color:#fff; font-weight:700; font-size:18px;
     display:flex; align-items:center; justify-content:center; margin:0 auto 8px auto;}
 .sesion-usuario{font-weight:700; color:#3A2A20; font-size:14px;}
 .sesion-rol{display:inline-block; margin-top:3px; font-size:11px; color:#7a5230; background:#fdf1e6; padding:2px 10px; border-radius:10px;}
 .sesion-salir{display:block; margin-top:10px; font-size:13px; color:#c0392b; text-decoration:none; font-weight:600;}
+
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid #C0563A; border-radius:5px;
+    color:#C0563A; text-decoration:none; font-size:13px; font-weight:600;}
+.btn-link:hover{background:#C0563A; color:#fff;}
 .sesion-salir:hover{text-decoration:underline;}
 
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
@@ -174,7 +178,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
 
         <div class="pd-card">
-            <h3 style="margin-top:0;">Ventas</h3>
+            <h3 style="margin-top:0;">Ventas — últimos 7 días</h3>
             <div class="barra-chart">
                 <?php foreach ($ultimos7 as $d): ?>
                 <div class="barra-col">
@@ -195,7 +199,7 @@ require_once __DIR__ . "/includes/layout_top.php";
                 <div><span class="dot dot-armando"></span> <?php echo $mesasArmando; ?> armando pedido</div>
                 <div><span class="dot dot-cocina"></span> <?php echo $mesasCocina; ?> en cocina</div>
             </div>
-            <p style="margin-top:10px;"><a href="pedidos_listado.php">Ver mapa de mesas →</a></p>
+            <p style="margin-top:10px;"><a class="btn-link" href="pedidos_listado.php">Ver mapa de mesas →</a></p>
         </div>
 
         <div class="pd-card">
@@ -209,7 +213,7 @@ require_once __DIR__ . "/includes/layout_top.php";
                 <tr><td><?php echo htmlspecialchars($s["nombre_pro"]); ?></td><td><?php echo number_format((float) $s["cantidad_pro"], 2); ?></td></tr>
                 <?php endforeach; ?>
                 </table>
-                <p style="margin-top:10px;"><a href="stock.php">Ver inventario completo →</a></p>
+                <p style="margin-top:10px;"><a class="btn-link" href="stock.php">Ver inventario completo →</a></p>
             <?php endif; ?>
         </div>
 
