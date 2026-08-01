@@ -86,7 +86,7 @@ ob_start();
   <table class="totales">
     <tr><td>Subtotal</td><td align="right">L. <?php echo number_format((float) $factura["subtotal"], 2); ?></td></tr>
     <?php if ((float) ($factura["descuento_monto"] ?? 0) > 0): ?>
-    <tr><td>Descuento (<?php echo htmlspecialchars($factura["descuento_pct"]); ?>%)</td><td align="right">− L. <?php echo number_format((float) $factura["descuento_monto"], 2); ?></td></tr>
+    <tr><td>Descuento (<?php echo htmlspecialchars($factura["descuento_pct"]); ?>%)</td><td align="right">- L. <?php echo number_format((float) $factura["descuento_monto"], 2); ?></td></tr>
     <?php endif; ?>
     <tr><td>Impuesto (15%)</td><td align="right">L. <?php echo number_format((float) $factura["impuesto"], 2); ?></td></tr>
     <tr class="total-final"><td>TOTAL</td><td align="right">L. <?php echo number_format((float) $factura["total"], 2); ?></td></tr>

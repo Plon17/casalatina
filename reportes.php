@@ -27,7 +27,8 @@ $tiposReporte = [
 .pd-field label{font-size:13px;color:#444;}
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:160px;}
 
-.tipos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:18px;}
+.tipos-grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:18px;}
+@media (max-width: 700px){ .tipos-grid{grid-template-columns:repeat(2, 1fr);} }
 .tipo-opcion input{display:none;}
 .tipo-opcion label{
     display:block;border:2px solid #ddd;border-radius:8px;padding:14px;cursor:pointer;
