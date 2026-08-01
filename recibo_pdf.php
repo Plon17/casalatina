@@ -13,7 +13,10 @@ use Dompdf\Options;
 $idPedido = $_GET["id"] ?? "";
 if (!$idPedido) { die("Falta el número de pedido."); }
 
-$pedidoStmt = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ?");
+$pedidoStmt = $pdo->prepare("SELECT p.*, f.nombre_cliente, f.rtn_cliente
+                              FROM pedido p
+                              LEFT JOIN factura f ON f.ID_Pedido = p.ID_Pedido
+                              WHERE p.ID_Pedido = ?");
 $pedidoStmt->execute([$idPedido]);
 $pedido = $pedidoStmt->fetch(PDO::FETCH_ASSOC);
 if (!$pedido) { die("Pedido no encontrado."); }
@@ -61,6 +64,12 @@ ob_start();
       <td><strong>Tipo:</strong> <?php echo htmlspecialchars($pedido["tipo_ped"]); ?><?php echo $pedido["num_mesa"] ? " (Mesa " . htmlspecialchars($pedido["num_mesa"]) . ")" : ""; ?></td>
       <td><strong>Cajero:</strong> <?php echo htmlspecialchars($pedido["cod_empleado"] ?? ""); ?></td>
     </tr>
+    <?php if (!empty($pedido["nombre_cliente"])): ?>
+    <tr>
+      <td><strong>Cliente:</strong> <?php echo htmlspecialchars($pedido["nombre_cliente"]); ?></td>
+      <td><?php if (!empty($pedido["rtn_cliente"])): ?><strong>RTN:</strong> <?php echo htmlspecialchars($pedido["rtn_cliente"]); ?><?php endif; ?></td>
+    </tr>
+    <?php endif; ?>
   </table>
 
   <table class="items">
@@ -77,8 +86,12 @@ ob_start();
 
   <table class="totales">
     <tr><td>Subtotal</td><td align="right">L. <?php echo number_format((float) $pedido["subtotal"], 2); ?></td></tr>
+    <?php if ((float) ($pedido["descuento_monto"] ?? 0) > 0): ?>
+    <tr><td>Descuento (<?php echo htmlspecialchars($pedido["descuento_pct"]); ?>%)</td><td align="right">− L. <?php echo number_format((float) $pedido["descuento_monto"], 2); ?></td></tr>
+    <?php endif; ?>
     <tr><td>Impuesto (15%)</td><td align="right">L. <?php echo number_format((float) $pedido["impuesto"], 2); ?></td></tr>
     <tr class="total-final"><td>TOTAL</td><td align="right">L. <?php echo number_format((float) $pedido["total"], 2); ?></td></tr>
+    <tr><td>Método de pago</td><td align="right"><?php echo htmlspecialchars($pedido["metodo_pago"] ?? "Efectivo"); ?></td></tr>
     <tr><td>Recibido</td><td align="right">L. <?php echo number_format((float) ($pedido["monto_recibido"] ?? 0), 2); ?></td></tr>
     <tr><td>Cambio</td><td align="right">L. <?php echo number_format((float) ($pedido["cambio"] ?? 0), 2); ?></td></tr>
   </table>

@@ -2,6 +2,7 @@
 $modulo_actual = "menu";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -49,14 +50,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 
     if ($_POST["accion"] === "eliminar") {
+        // menu_ingredientes tiene ON DELETE CASCADE, pero pedido_detalle NO
+        // (con razón: no queremos que un pedido viejo pierda su referencia).
+        // Si el plato ya se usó en algún pedido, lo desactivamos en vez de borrarlo.
         try {
             $stmt = $pdo->prepare("DELETE FROM menu WHERE ID_Menu=?");
             $stmt->execute([$_POST["id_menu"]]);
             $mensaje = "Item eliminado.";
+            registrarAuditoria($pdo, "menu", "Item eliminado", $_POST["id_menu"]);
         } catch (PDOException $e) {
             if ($e->getCode() === "23000") {
                 $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
-                $mensaje = "Este plato ya esta en uso";
+                $mensaje = "Este plato ya se usó en algún pedido, así que no se puede borrar sin perder ese historial. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
+                registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
             } else {
                 $error = "Error al eliminar: " . $e->getMessage();
             }
@@ -66,6 +72,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     if ($_POST["accion"] === "reactivar") {
         $pdo->prepare("UPDATE menu SET activo = 1 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
         $mensaje = "Item reactivado.";
+        registrarAuditoria($pdo, "menu", "Item reactivado", $_POST["id_menu"]);
     }
 }
 
@@ -158,7 +165,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este item?');">
             <input type="hidden" name="accion" value="eliminar">
             <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
-            <button type="submit">DESACTIVAR</button>
+            <button type="submit">ELIMINAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">

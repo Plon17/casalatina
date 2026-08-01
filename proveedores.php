@@ -2,6 +2,7 @@
 $modulo_actual = "prov";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -12,13 +13,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM proveedores")->fetch()["c"] + 1;
         $idProv = "PV" . str_pad($n, 4, "0", STR_PAD_LEFT);
         $stmt = $pdo->prepare("INSERT INTO proveedores (ID_prov, nom_prov, tel_prov, dir_prov) VALUES (?,?,?,?)");
-        $stmt->execute([$idProv, $_POST["nombre"], $_POST["telefono"], $_POST["direccion"]]);
+        $stmt->execute([$idProv, $_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null]);
         $mensaje = "Proveedor agregado ($idProv).";
     }
 
     if ($_POST["accion"] === "editar") {
         $stmt = $pdo->prepare("UPDATE proveedores SET nom_prov=?, tel_prov=?, dir_prov=? WHERE ID_prov=?");
-        $stmt->execute([$_POST["nombre"], $_POST["telefono"], $_POST["direccion"], $_POST["id_prov"]]);
+        $stmt->execute([$_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["id_prov"]]);
         $mensaje = "Proveedor actualizado.";
     }
 
@@ -34,6 +35,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         } else {
             $pdo->prepare("DELETE FROM proveedores WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
             $mensaje = "Proveedor eliminado.";
+            registrarAuditoria($pdo, "proveedores", "Proveedor eliminado", $_POST["id_prov"]);
         }
     }
 }

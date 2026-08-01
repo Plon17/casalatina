@@ -1,3 +1,5 @@
+//DEPRECIADO
+
 <?php
 $modulo_actual = "pedido";
 require_once __DIR__ . "/includes/auth.php";
@@ -6,7 +8,6 @@ require_once __DIR__ . "/includes/db.php";
 $mensaje = "";
 $error = "";
 
-// Guardar el pedido completo (cabecera + detalle) que llega como JSON desde el JS
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guardar_pedido") {
 
     $items = json_decode($_POST["detalle_json"], true);

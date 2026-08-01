@@ -2,6 +2,7 @@
 $modulo_actual = "factura";
 require_once __DIR__ . "/includes/auth.php";
 require_once __DIR__ . "/includes/db.php";
+require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
@@ -12,6 +13,7 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "borrar") {
     $pdo->prepare("DELETE FROM factura WHERE ID_Factura = ?")->execute([$_POST["id_factura"]]);
     $mensaje = "Factura eliminada.";
+    registrarAuditoria($pdo, "factura", "Factura eliminada", $_POST["id_factura"]);
 }
 
 $verId = $_GET["ver"] ?? null;
@@ -44,7 +46,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <?php if ($verId): ?>
     <?php
-    $stmt = $pdo->prepare("SELECT f.*, p.subtotal, p.num_mesa, p.tipo_ped
+    $stmt = $pdo->prepare("SELECT f.*, p.subtotal, p.num_mesa, p.tipo_ped, p.descuento_pct, p.descuento_monto, p.metodo_pago
                             FROM factura f JOIN pedido p ON p.ID_Pedido = f.ID_Pedido
                             WHERE f.ID_Factura = ?");
     $stmt->execute([$verId]);
@@ -75,6 +77,9 @@ require_once __DIR__ . "/includes/layout_top.php";
             <div class="factura-linea"></div>
 
             <div class="factura-fila"><span>Cliente:</span><span><?php echo htmlspecialchars($factura["nombre_cliente"]); ?></span></div>
+            <?php if (!empty($factura["rtn_cliente"])): ?>
+            <div class="factura-fila"><span>RTN:</span><span><?php echo htmlspecialchars($factura["rtn_cliente"]); ?></span></div>
+            <?php endif; ?>
             <div class="factura-fila"><span>Fecha:</span><span><?php echo htmlspecialchars($factura["fecha_fac"]); ?></span></div>
             <div class="factura-fila"><span>Pedido:</span><span><?php echo htmlspecialchars($factura["ID_Pedido"]); ?>
                 <?php echo $factura["num_mesa"] ? " (Mesa " . htmlspecialchars($factura["num_mesa"]) . ")" : " (" . htmlspecialchars($factura["tipo_ped"]) . ")"; ?></span></div>
@@ -95,8 +100,12 @@ require_once __DIR__ . "/includes/layout_top.php";
             <div class="factura-linea"></div>
 
             <div class="factura-fila"><span>Subtotal:</span><span>L. <?php echo number_format((float) $factura["subtotal"], 2); ?></span></div>
+            <?php if ((float) ($factura["descuento_monto"] ?? 0) > 0): ?>
+            <div class="factura-fila"><span>Descuento (<?php echo htmlspecialchars($factura["descuento_pct"]); ?>%):</span><span>− L. <?php echo number_format((float) $factura["descuento_monto"], 2); ?></span></div>
+            <?php endif; ?>
             <div class="factura-fila"><span>Impuesto (15%):</span><span>L. <?php echo number_format((float) $factura["impuesto"], 2); ?></span></div>
             <div class="factura-fila factura-total"><span>TOTAL:</span><span>L. <?php echo number_format((float) $factura["total"], 2); ?></span></div>
+            <div class="factura-fila"><span>Método de pago:</span><span><?php echo htmlspecialchars($factura["metodo_pago"] ?? "Efectivo"); ?></span></div>
             <div class="factura-linea"></div>
             <p style="text-align:center; color:#666;">¡Gracias por su preferencia!</p>
         </div>
