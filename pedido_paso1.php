@@ -55,9 +55,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
 
     $items = json_decode($_POST["detalle_json"] ?? "", true);
     $idPedidoExistente = $_POST["id_pedido_existente"] ?? "";
+    $cantidadInvalida = false;
+    foreach ($items ?: [] as $it) {
+        if ((float) ($it["cantidad"] ?? 0) > 500) { $cantidadInvalida = true; }
+    }
 
     if (!$items || count($items) === 0) {
         $error = "El pedido no tiene productos agregados.";
+    } elseif ($cantidadInvalida) {
+        $error = "Uno de los productos tiene una cantidad demasiado alta (máximo 500 por producto).";
     } elseif (empty($_POST["num_mesa"])) {
         $error = "Selecciona un número de mesa.";
     } elseif ($idPedidoExistente) {
@@ -176,7 +182,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field chico">
             <label>Cantidad</label>
-            <input type="number" id="cantidad_item" value="1" min="1">
+            <input type="number" id="cantidad_item" value="1" min="1" max="500">
         </div>
         <button type="button" onclick="agregarItem()">Agregar</button>
     </div>
@@ -262,6 +268,10 @@ function agregarItem() {
 
     if (!idMenu || isNaN(precio) || isNaN(cantidad) || cantidad <= 0) {
         alert("Selecciona un producto del menú y una cantidad válida.");
+        return;
+    }
+    if (cantidad > 500) {
+        alert("Esa cantidad es demasiado alta (máximo 500 por producto). Revisa que no se te haya ido de más algún dígito.");
         return;
     }
     itemsPedido.push({ id_menu: idMenu, nombre: nombre, precio: precio, cantidad: cantidad });

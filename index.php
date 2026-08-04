@@ -69,7 +69,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .dash-layout{display:flex; gap:20px; align-items:flex-start;}
 .dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px;
     display:flex; flex-direction:column;}
-.dash-sidebar-links{overflow-y:auto; max-height:410 px;}
+.dash-sidebar-links{overflow-y:auto; max-height:410px;}
 .dash-sidebar .menu-item{margin-bottom:8px;}
 .dash-sidebar .btn{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:6px;
     background:var(--color-primary-light); border:1px solid #eee; text-decoration:none; color:var(--color-text-dark); font-weight:600; font-size:14px;}
