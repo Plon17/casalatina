@@ -69,7 +69,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .dash-layout{display:flex; gap:20px; align-items:flex-start;}
 .dash-sidebar{width:220px; flex-shrink:0; background:#fff; border:1px solid #ddd; border-radius:8px; padding:12px;
     display:flex; flex-direction:column;}
-.dash-sidebar-links{overflow-y:auto; max-height:430px;}
+.dash-sidebar-links{overflow-y:auto; max-height:410 px;}
 .dash-sidebar .menu-item{margin-bottom:8px;}
 .dash-sidebar .btn{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:6px;
     background:var(--color-primary-light); border:1px solid #eee; text-decoration:none; color:var(--color-text-dark); font-weight:600; font-size:14px;}
@@ -83,6 +83,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 .sesion-usuario{font-weight:700; color:var(--color-text-dark); font-size:14px;}
 .sesion-rol{display:inline-block; margin-top:3px; font-size:11px; color:var(--color-primary-dark); background:var(--color-primary-light); padding:2px 10px; border-radius:10px;}
 .sesion-salir{display:block; margin-top:10px; font-size:13px; color:var(--color-danger); text-decoration:none; font-weight:600;}
+.sesion-perfil{display:block; margin-top:6px; font-size:13px; color:var(--color-primary); text-decoration:none; font-weight:600;}
+.sesion-perfil:hover{text-decoration:underline;}
 
 .btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
     color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600;}
@@ -149,6 +151,7 @@ require_once __DIR__ . "/includes/layout_top.php";
             <div class="sesion-avatar"><?php echo htmlspecialchars(strtoupper(substr($_SESSION["usuario"], 0, 1))); ?></div>
             <div class="sesion-usuario"><?php echo htmlspecialchars($_SESSION["usuario"]); ?></div>
             <span class="sesion-rol"><?php echo htmlspecialchars(ucfirst($_SESSION["rol"])); ?></span>
+            <a class="sesion-perfil" href="perfil.php">Mi Perfil</a>
             <a class="sesion-salir" href="logout.php">Cerrar sesión</a>
         </div>
     </div>

@@ -17,17 +17,21 @@ $error = "";
 // ---------- EMPLEADOS ----------
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guardar_empleado") {
+    $puestoFinal = ($_POST["puesto_empl"] === "Otro" && trim($_POST["puesto_otro"] ?? "") !== "")
+        ? trim($_POST["puesto_otro"]) : $_POST["puesto_empl"];
     $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM empleado")->fetch()["c"] + 1;
     $codEmpleado = "E" . str_pad($n, 3, "0", STR_PAD_LEFT);
     $stmt = $pdo->prepare("INSERT INTO empleado (cod_empleado, nombre_empl, puesto_empl, salario_empl) VALUES (?,?,?,?)");
-    $stmt->execute([$codEmpleado, $_POST["nombre_empl"], $_POST["puesto_empl"], $_POST["salario_empl"] ?: null]);
+    $stmt->execute([$codEmpleado, $_POST["nombre_empl"], $puestoFinal, $_POST["salario_empl"] ?: null]);
     $mensaje = "Empleado agregado ($codEmpleado).";
     registrarAuditoria($pdo, "usuarios", "Empleado agregado", "$codEmpleado - " . $_POST["nombre_empl"]);
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "editar_empleado") {
+    $puestoFinal = ($_POST["puesto_empl"] === "Otro" && trim($_POST["puesto_otro"] ?? "") !== "")
+        ? trim($_POST["puesto_otro"]) : $_POST["puesto_empl"];
     $stmt = $pdo->prepare("UPDATE empleado SET nombre_empl=?, puesto_empl=?, salario_empl=? WHERE cod_empleado=?");
-    $stmt->execute([$_POST["nombre_empl"], $_POST["puesto_empl"], $_POST["salario_empl"] ?: null, $_POST["cod_empleado"]]);
+    $stmt->execute([$_POST["nombre_empl"], $puestoFinal, $_POST["salario_empl"] ?: null, $_POST["cod_empleado"]]);
     $mensaje = "Empleado actualizado.";
     registrarAuditoria($pdo, "usuarios", "Empleado editado", $_POST["cod_empleado"]);
 }
@@ -207,7 +211,25 @@ require_once __DIR__ . "/includes/layout_top.php";
     <input type="hidden" name="cod_empleado" id="cod_empleado">
     <div class="pd-row">
         <div class="pd-field"><label>Nombre</label><input type="text" name="nombre_empl" id="nombre_empl" required></div>
-        <div class="pd-field"><label>Puesto</label><input type="text" name="puesto_empl" id="puesto_empl"></div>
+        <div class="pd-field">
+            <label>Puesto</label>
+            <select name="puesto_empl" id="puesto_empl" onchange="togglePuestoOtro()">
+                <option value="Administrador">Administrador</option>
+                <option value="Gerente">Gerente</option>
+                <option value="Cajero">Cajero</option>
+                <option value="Mesero">Mesero</option>
+                <option value="Cocinero">Cocinero</option>
+                <option value="Ayudante de Cocina">Ayudante de Cocina</option>
+                <option value="Bodega / Inventario">Bodega / Inventario</option>
+                <option value="Repartidor">Repartidor</option>
+                <option value="Limpieza">Limpieza</option>
+                <option value="Otro">Otro</option>
+            </select>
+        </div>
+        <div class="pd-field" id="fila_puesto_otro" style="display:none;">
+            <label>Especifica el puesto</label>
+            <input type="text" name="puesto_otro" id="puesto_otro" placeholder="Escribe el puesto">
+        </div>
         <div class="pd-field"><label>Salario</label><input type="number" step="0.01" name="salario_empl" id="salario_empl"></div>
     </div>
     <div class="pd-actions">
@@ -279,11 +301,30 @@ require_once __DIR__ . "/includes/layout_top.php";
 </div>
 
 <script>
+const PUESTOS_ESTANDAR = [
+    "Administrador", "Gerente", "Cajero", "Mesero", "Cocinero",
+    "Ayudante de Cocina", "Bodega / Inventario", "Repartidor", "Limpieza"
+];
+
+function togglePuestoOtro() {
+    const esOtro = document.getElementById("puesto_empl").value === "Otro";
+    document.getElementById("fila_puesto_otro").style.display = esOtro ? "flex" : "none";
+}
+
 function cargarEmpleado(e) {
     document.getElementById("tituloEmpleado").textContent = "Editando " + e.cod_empleado;
     document.getElementById("cod_empleado").value = e.cod_empleado;
     document.getElementById("nombre_empl").value = e.nombre_empl;
-    document.getElementById("puesto_empl").value = e.puesto_empl;
+
+    if (PUESTOS_ESTANDAR.includes(e.puesto_empl)) {
+        document.getElementById("puesto_empl").value = e.puesto_empl;
+        document.getElementById("puesto_otro").value = "";
+    } else {
+        document.getElementById("puesto_empl").value = "Otro";
+        document.getElementById("puesto_otro").value = e.puesto_empl || "";
+    }
+    togglePuestoOtro();
+
     document.getElementById("salario_empl").value = e.salario_empl;
     document.getElementById("btnGuardarEmpleado").style.display = "none";
     document.getElementById("btnEditarEmpleado").style.display = "inline-block";
@@ -294,6 +335,7 @@ function nuevoEmpleado() {
     document.getElementById("tituloEmpleado").textContent = "+ Nuevo empleado";
     document.getElementById("formEmpleado").reset();
     document.getElementById("accionEmpleado").value = "guardar_empleado";
+    togglePuestoOtro();
     document.getElementById("btnGuardarEmpleado").style.display = "inline-block";
     document.getElementById("btnEditarEmpleado").style.display = "none";
     document.getElementById("btnNuevoEmpleado").style.display = "none";

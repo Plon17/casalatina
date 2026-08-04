@@ -60,7 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
             $stmt = $pdo->prepare("UPDATE pedido SET impuesto=?, total=?, monto_recibido=?, cambio=?, cod_empleado=?,
                                     metodo_pago=?, descuento_pct=?, descuento_monto=?, estado='Pagado'
                                     WHERE ID_Pedido=? AND estado='EnCocina'");
-            $stmt->execute([$impuesto, $total, $montoRecibido, $cambio, $_POST["cajero"],
+            $stmt->execute([$impuesto, $total, $montoRecibido, $cambio, $_SESSION["cod_empleado"] ?? null,
                              $metodoPago, $descuentoPct, $descuentoMonto, $idPedido]);
 
             if ($stmt->rowCount() === 0) {
@@ -75,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
 
             $stmtFac = $pdo->prepare("INSERT INTO factura (ID_Factura, nombre_cliente, cod_empleado, ID_Pedido, fecha_fac, impuesto, total, rtn_cliente)
                                        VALUES (?,?,?,?,?,?,?,?)");
-            $stmtFac->execute([$idFactura, $nombreCliente, $_POST["cajero"], $idPedido, date("Y-m-d"), $impuesto, $total, $rtnCliente]);
+            $stmtFac->execute([$idFactura, $nombreCliente, $_SESSION["cod_empleado"] ?? null, $idPedido, date("Y-m-d"), $impuesto, $total, $rtnCliente]);
 
             $pdo->commit();
             $mensaje = "Pedido #" . htmlspecialchars($idPedido) . " cobrado correctamente ($metodoPago). Factura $idFactura generada.";
@@ -135,6 +135,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field label{font-size:13px;color:#444;}
 .pd-field input,.pd-field select{padding:8px 10px;border:1px solid #ccc;border-radius:4px;width:100%;box-sizing:border-box;}
 .pd-actions{margin-top:16px;display:flex;gap:10px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600; margin-right:6px;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 .cobro-grid{display:grid;gap:18px;margin-bottom:18px;}
 .cobro-grid-3{grid-template-columns:repeat(3, 1fr);}
 .cobro-grid-2{grid-template-columns:repeat(2, 1fr);}
@@ -148,7 +151,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </style>
 
 <p class="titulo-modulo">Paso 3 de 3 — Cobro</p>
-<p><a href="pedidos_listado.php">← Volver a Mesas</a><?php if ($pedido["estado"] === "EnCocina"): ?> &nbsp;|&nbsp; <a href="pedido_paso2.php?id=<?php echo urlencode($idPedido); ?>">+ Agregar más productos</a><?php endif; ?></p>
+<p><a class="btn-link" href="pedidos_listado.php">← Volver a Mesas</a><?php if ($pedido["estado"] === "EnCocina"): ?> <a class="btn-link" href="pedido_paso2.php?id=<?php echo urlencode($idPedido); ?>">+ Agregar más productos</a><?php endif; ?></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Estado: <?php echo htmlspecialchars($pedido["estado"]); ?></p>
@@ -203,7 +206,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
             <label>Descuento (%)</label>
             <input type="number" step="0.01" min="0" max="100" name="descuento_pct" id="descuento_pct" value="0" oninput="actualizarResumen()">
         </div>
-        <div class="pd-field"><label>Cajero</label><input type="text" name="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>"></div>
+        <div class="pd-field"><label>Cajero</label><input type="text" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>" readonly></div>
     </div>
 
     <div class="cobro-grid cobro-grid-2">
@@ -335,6 +338,6 @@ actualizarResumen();
 
 <?php endif; ?>
 
-<p><a href="pedido_paso1.php">+ Nuevo pedido</a></p>
+<p><a class="btn-link" href="pedido_paso1.php">+ Nuevo pedido</a></p>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>

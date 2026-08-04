@@ -12,15 +12,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     if ($_POST["accion"] === "guardar") {
         $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM proveedores")->fetch()["c"] + 1;
         $idProv = "PV" . str_pad($n, 4, "0", STR_PAD_LEFT);
-        $stmt = $pdo->prepare("INSERT INTO proveedores (ID_prov, nom_prov, tel_prov, dir_prov) VALUES (?,?,?,?)");
-        $stmt->execute([$idProv, $_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null]);
+        $stmt = $pdo->prepare("INSERT INTO proveedores (ID_prov, nom_prov, tel_prov, dir_prov, email_prov) VALUES (?,?,?,?,?)");
+        $stmt->execute([$idProv, $_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null]);
         $mensaje = "Proveedor agregado ($idProv).";
+        registrarAuditoria($pdo, "proveedores", "Proveedor agregado", "$idProv - " . $_POST["nombre"]);
     }
 
     if ($_POST["accion"] === "editar") {
-        $stmt = $pdo->prepare("UPDATE proveedores SET nom_prov=?, tel_prov=?, dir_prov=? WHERE ID_prov=?");
-        $stmt->execute([$_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["id_prov"]]);
+        $stmt = $pdo->prepare("UPDATE proveedores SET nom_prov=?, tel_prov=?, dir_prov=?, email_prov=? WHERE ID_prov=?");
+        $stmt->execute([$_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null, $_POST["id_prov"]]);
         $mensaje = "Proveedor actualizado.";
+        registrarAuditoria($pdo, "proveedores", "Proveedor editado", $_POST["id_prov"]);
     }
 
     if ($_POST["accion"] === "eliminar") {
@@ -104,16 +106,50 @@ require_once __DIR__ . "/includes/layout_top.php";
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
 <div class="pd-card">
+<h3 style="margin-top:0;" id="tituloForm">Agregar proveedor nuevo</h3>
+<form method="POST" id="formProv">
+    <input type="hidden" name="accion" id="accion" value="guardar">
+    <input type="hidden" name="id_prov" id="id_prov">
+
+    <div class="pd-row">
+        <div class="pd-field">
+            <label>Nombre</label>
+            <input type="text" name="nombre" id="nombre" required>
+        </div>
+        <div class="pd-field">
+            <label>Teléfono</label>
+            <input type="text" name="telefono" id="telefono">
+        </div>
+        <div class="pd-field">
+            <label>Correo electrónico</label>
+            <input type="email" name="email" id="email" placeholder="proveedor@correo.com">
+        </div>
+        <div class="pd-field" style="flex:1; min-width:220px;">
+            <label>Dirección</label>
+            <input type="text" name="direccion" id="direccion">
+        </div>
+    </div>
+
+    <div class="pd-actions">
+        <button type="submit" id="btnGuardar" onclick="document.getElementById('accion').value='guardar'">GUARDAR</button>
+        <button type="submit" id="btnEditar" style="display:none;" onclick="document.getElementById('accion').value='editar'">GUARDAR EDICIÓN</button>
+        <button type="button" id="btnNuevo" style="display:none;" onclick="nuevoProveedor()">+ NUEVO PROVEEDOR</button>
+    </div>
+</form>
+</div>
+
+<div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th>Productos</th><th>Total comprado</th><th>Estado</th><th></th></tr>
+<tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Dirección</th><th>Productos</th><th>Total comprado</th><th>Estado</th><th></th></tr>
 <?php if (count($proveedores) === 0): ?>
-<tr><td colspan="8">No hay proveedores registrados.</td></tr>
+<tr><td colspan="9">No hay proveedores registrados.</td></tr>
 <?php endif; ?>
 <?php foreach ($proveedores as $p): ?>
 <tr<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
     <td><?php echo htmlspecialchars($p["ID_prov"]); ?></td>
     <td><?php echo htmlspecialchars($p["nom_prov"]); ?></td>
     <td><?php echo htmlspecialchars($p["tel_prov"]); ?></td>
+    <td><?php echo htmlspecialchars($p["email_prov"] ?? ""); ?></td>
     <td><?php echo htmlspecialchars($p["dir_prov"]); ?></td>
     <td>
         <?php if ($p["num_productos"] > 0): ?>
@@ -151,41 +187,13 @@ require_once __DIR__ . "/includes/layout_top.php";
 </table>
 </div>
 
-<div class="pd-card">
-<h3 style="margin-top:0;" id="tituloForm">Agregar proveedor nuevo</h3>
-<form method="POST" id="formProv">
-    <input type="hidden" name="accion" id="accion" value="guardar">
-    <input type="hidden" name="id_prov" id="id_prov">
-
-    <div class="pd-row">
-        <div class="pd-field">
-            <label>Nombre</label>
-            <input type="text" name="nombre" id="nombre" required>
-        </div>
-        <div class="pd-field">
-            <label>Teléfono</label>
-            <input type="text" name="telefono" id="telefono">
-        </div>
-        <div class="pd-field" style="flex:1; min-width:220px;">
-            <label>Dirección</label>
-            <input type="text" name="direccion" id="direccion">
-        </div>
-    </div>
-
-    <div class="pd-actions">
-        <button type="submit" id="btnGuardar" onclick="document.getElementById('accion').value='guardar'">GUARDAR</button>
-        <button type="submit" id="btnEditar" style="display:none;" onclick="document.getElementById('accion').value='editar'">GUARDAR EDICIÓN</button>
-        <button type="button" id="btnNuevo" style="display:none;" onclick="nuevoProveedor()">+ NUEVO PROVEEDOR</button>
-    </div>
-</form>
-</div>
-
 <script>
 function cargarFila(p) {
     document.getElementById("tituloForm").textContent = "Editando " + p.ID_prov;
     document.getElementById("id_prov").value = p.ID_prov;
     document.getElementById("nombre").value = p.nom_prov;
     document.getElementById("telefono").value = p.tel_prov;
+    document.getElementById("email").value = p.email_prov || "";
     document.getElementById("direccion").value = p.dir_prov;
     document.getElementById("btnGuardar").style.display = "none";
     document.getElementById("btnEditar").style.display = "inline-block";

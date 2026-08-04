@@ -12,6 +12,7 @@ $esAdmin = ($_SESSION["rol"] ?? "") === "administrador";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "registrar_gasto") {
     if (!$esAdmin) {
         $error = "Solo un administrador puede crear categorías de gasto.";
+        registrarAuditoria($pdo, "gastos", "Intento de modificación denegado", "Acción: registrar_gasto (rol: " . ($_SESSION["rol"] ?? "?") . ")");
     } else {
         $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM gastos")->fetch()["c"] + 1;
         $idGasto = "G" . str_pad($n, 6, "0", STR_PAD_LEFT);
@@ -22,16 +23,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
     }
 }
 
+// Editar una categoría de gasto existente (solo Administrador)
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "editar_gasto") {
+    if (!$esAdmin) {
+        $error = "Solo un administrador puede editar categorías de gasto.";
+        registrarAuditoria($pdo, "gastos", "Intento de modificación denegado", "Acción: editar_gasto (rol: " . ($_SESSION["rol"] ?? "?") . ")");
+    } else {
+        $stmt = $pdo->prepare("UPDATE gastos SET nombre=?, tipo=?, descripcion=? WHERE ID_gastos=?");
+        $stmt->execute([$_POST["nombre"], $_POST["tipo"], $_POST["descripcion"], $_POST["id_gastos"]]);
+        $mensaje = "Categoría de gasto actualizada.";
+        registrarAuditoria($pdo, "gastos", "Categoría de gasto editada", $_POST["id_gastos"] . " - " . $_POST["nombre"]);
+    }
+}
+
 // Registrar un detalle (ocurrencia real de un gasto) — disponible para cualquier rol con acceso al módulo
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "registrar_detalle") {
     $idGastos = $_POST["id_gastos"] ?? "";
+    $descripcionMov = trim($_POST["descripcion"] ?? "");
     if (!$idGastos) {
         $error = "Selecciona a qué gasto pertenece este detalle.";
+    } elseif ($descripcionMov === "") {
+        $error = "Escribe una breve descripción de este gasto (ej. \"factura de julio\", \"reparación de refrigerador\").";
     } else {
         $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM gastos_detalles")->fetch()["c"] + 1;
         $idDetg = "GD" . str_pad($d, 6, "0", STR_PAD_LEFT);
-        $stmt = $pdo->prepare("INSERT INTO gastos_detalles (ID_detg, fecha, monto, ID_gastos) VALUES (?,?,?,?)");
-        $stmt->execute([$idDetg, $_POST["fecha"], $_POST["monto"], $idGastos]);
+        $stmt = $pdo->prepare("INSERT INTO gastos_detalles (ID_detg, fecha, monto, descripcion, ID_gastos) VALUES (?,?,?,?,?)");
+        $stmt->execute([$idDetg, $_POST["fecha"], $_POST["monto"], $descripcionMov, $idGastos]);
         $mensaje = "Detalle de gasto registrado.";
         registrarAuditoria($pdo, "gastos", "Gasto registrado", "$idDetg — $idGastos (L. " . $_POST["monto"] . ")");
     }
@@ -87,9 +104,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Categorías de gasto</h3>
 <table class="pd-tabla">
-<tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Descripción</th><th>Total acumulado</th></tr>
+<tr><th>ID</th><th>Nombre</th><th>Tipo</th><th>Descripción</th><th>Total acumulado</th><?php if ($esAdmin): ?><th></th><?php endif; ?></tr>
 <?php if (count($gastos) === 0): ?>
-<tr><td colspan="5">Todavía no hay categorías de gasto registradas.</td></tr>
+<tr><td colspan="6">Todavía no hay categorías de gasto registradas.</td></tr>
 <?php endif; ?>
 <?php foreach ($gastos as $g): ?>
 <tr class="fila-clic <?php echo ($gastoActual && $g['ID_gastos'] === $gastoActual['ID_gastos']) ? 'fila-seleccionada' : ''; ?>"
@@ -101,31 +118,38 @@ require_once __DIR__ . "/includes/layout_top.php";
         <?php echo htmlspecialchars($g["descripcion"] ?: "—"); ?>
     </td>
     <td><?php echo number_format((float) $g["total"], 2); ?></td>
+    <?php if ($esAdmin): ?>
+    <td>
+        <button type="button" onclick="event.stopPropagation(); cargarCategoria(<?php echo htmlspecialchars(json_encode($g)); ?>)">EDITAR</button>
+    </td>
+    <?php endif; ?>
 </tr>
 <?php endforeach; ?>
 </table>
 
 <?php if ($esAdmin): ?>
-<h4 style="margin:18px 0 8px 0;">+ Nueva categoría de gasto</h4>
-<form method="POST" class="pd-row">
-    <input type="hidden" name="accion" value="registrar_gasto">
+<h4 style="margin:18px 0 8px 0;" id="tituloCategoria">+ Nueva categoría de gasto</h4>
+<form method="POST" class="pd-row" id="formCategoria">
+    <input type="hidden" name="accion" id="accionCategoria" value="registrar_gasto">
+    <input type="hidden" name="id_gastos" id="id_gastos_form">
     <div class="pd-field" style="flex:1; min-width:160px;">
         <label>Nombre</label>
-        <input type="text" name="nombre" required>
+        <input type="text" name="nombre" id="cat_nombre" required>
     </div>
     <div class="pd-field">
         <label>Tipo</label>
-        <select name="tipo" required>
+        <select name="tipo" id="cat_tipo" required>
             <option value="Publico">Público</option>
-            <option value="Privado">Privado</option>
             <option value="Operativo">Operativo</option>
         </select>
     </div>
     <div class="pd-field" style="flex:1; min-width:200px;">
         <label>Descripción</label>
-        <input type="text" name="descripcion">
+        <input type="text" name="descripcion" id="cat_descripcion">
     </div>
-    <button type="submit">REGISTRAR CATEGORÍA</button>
+    <button type="submit" id="btnGuardarCategoria" onclick="document.getElementById('accionCategoria').value='registrar_gasto'">REGISTRAR CATEGORÍA</button>
+    <button type="submit" id="btnEditarCategoria" style="display:none;" onclick="document.getElementById('accionCategoria').value='editar_gasto'">GUARDAR EDICIÓN</button>
+    <button type="button" id="btnNuevaCategoria" style="display:none;" onclick="nuevaCategoria()">+ NUEVA CATEGORÍA</button>
 </form>
 <?php endif; ?>
 </div>
@@ -154,29 +178,59 @@ require_once __DIR__ . "/includes/layout_top.php";
             <label>Monto</label>
             <input type="number" step="0.01" name="monto" required>
         </div>
+        <div class="pd-field" style="flex:1; min-width:220px;">
+            <label>Descripción</label>
+            <input type="text" name="descripcion" placeholder="ej. factura de julio" required>
+        </div>
         <button type="submit">REGISTRAR DETALLE</button>
     </form>
 
     <table class="pd-tabla" style="margin-top:14px;">
-    <tr><th>ID Detalle</th><th>Fecha</th><th>Monto</th></tr>
+    <tr><th>ID Detalle</th><th>Fecha</th><th>Descripción</th><th>Monto</th></tr>
     <?php if (count($detalles) === 0): ?>
-    <tr><td colspan="3">Todavía no hay movimientos registrados para esta categoría.</td></tr>
+    <tr><td colspan="4">Todavía no hay movimientos registrados para esta categoría.</td></tr>
     <?php endif; ?>
     <?php foreach ($detalles as $d): ?>
     <tr>
         <td><?php echo htmlspecialchars($d["ID_detg"]); ?></td>
         <td><?php echo htmlspecialchars($d["fecha"]); ?></td>
+        <td><?php echo htmlspecialchars($d["descripcion"] ?? ""); ?></td>
         <td><?php echo number_format((float) $d["monto"], 2); ?></td>
     </tr>
     <?php endforeach; ?>
     <?php if (count($detalles) > 0): ?>
     <tr>
-        <td colspan="2" style="text-align:right; font-weight:600;">Total:</td>
+        <td colspan="3" style="text-align:right; font-weight:600;">Total:</td>
         <td style="font-weight:600;"><?php echo number_format((float) $gastoActual["total"], 2); ?></td>
     </tr>
     <?php endif; ?>
     </table>
 <?php endif; ?>
 </div>
+
+<?php if ($esAdmin): ?>
+<script>
+function cargarCategoria(g) {
+    document.getElementById("tituloCategoria").textContent = "Editando " + g.ID_gastos;
+    document.getElementById("id_gastos_form").value = g.ID_gastos;
+    document.getElementById("cat_nombre").value = g.nombre;
+    document.getElementById("cat_tipo").value = g.tipo;
+    document.getElementById("cat_descripcion").value = g.descripcion || "";
+    document.getElementById("btnGuardarCategoria").style.display = "none";
+    document.getElementById("btnEditarCategoria").style.display = "inline-block";
+    document.getElementById("btnNuevaCategoria").style.display = "inline-block";
+    document.getElementById("formCategoria").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function nuevaCategoria() {
+    document.getElementById("tituloCategoria").textContent = "+ Nueva categoría de gasto";
+    document.getElementById("formCategoria").reset();
+    document.getElementById("id_gastos_form").value = "";
+    document.getElementById("btnGuardarCategoria").style.display = "inline-block";
+    document.getElementById("btnEditarCategoria").style.display = "none";
+    document.getElementById("btnNuevaCategoria").style.display = "none";
+}
+</script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>

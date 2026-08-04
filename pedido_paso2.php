@@ -172,13 +172,16 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field label{font-size:13px;color:#444;}
 .pd-field input{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:120px;}
 .pd-actions{margin-top:16px;display:flex;gap:10px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 .pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .ronda-tag{background:var(--color-info-bg);color:var(--color-info);padding:1px 8px;border-radius:10px;font-size:12px;}
 </style>
 
 <p class="titulo-modulo">Paso 2 de 3 — Revisar y enviar a cocina</p>
-<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
+<p><a class="btn-link" href="pedidos_listado.php">← Volver a Mesas</a></p>
 <p>Pedido <strong><?php echo htmlspecialchars($idPedido); ?></strong> —
    Mesa: <?php echo htmlspecialchars($pedido["num_mesa"] ?: "N/A"); ?> —
    Tipo: <?php echo htmlspecialchars($pedido["tipo_ped"]); ?> —

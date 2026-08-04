@@ -235,10 +235,11 @@ ob_start();
         <p style="color:#777; font-size:11px; margin:0 0 6px 0;"><?php echo htmlspecialchars($g["descripcion"]); ?></p>
         <?php endif; ?>
         <table class="items">
-        <tr><th>Fecha</th><th>Monto</th></tr>
+        <tr><th>Fecha</th><th>Descripción</th><th>Monto</th></tr>
         <?php foreach ($g["movimientos"] as $m): ?>
         <tr>
             <td><?php echo htmlspecialchars($m["fecha"]); ?></td>
+            <td><?php echo htmlspecialchars($m["descripcion"] ?? ""); ?></td>
             <td>L. <?php echo number_format((float) $m["monto"], 2); ?></td>
         </tr>
         <?php endforeach; ?>
