@@ -10,7 +10,8 @@ if (!isset($_SESSION["rol"])) {
 // Nota: "gastos" reemplaza al antiguo "gasto_det" — gastos.php y detalle_gasto.php
 // se fusionaron en una sola pantalla. El formulario para crear categorías nuevas
 // de gasto sigue restringido a administrador dentro de gastos.php.
-$modulos_empleado = ["inicio", "menu", "pedido", "factura", "stock", "gastos"];
+// "perfil" es "Mi Perfil" (cambiar la propia contraseña) — accesible para cualquiera.
+$modulos_empleado = ["inicio", "menu", "pedido", "factura", "stock", "gastos", "perfil"];
 // $modulo_actual se define en cada pagina antes de incluir este archivo
 if (isset($modulo_actual)) {
     $es_admin = ($_SESSION["rol"] === "administrador");
