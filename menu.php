@@ -6,7 +6,9 @@ require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
+$esAdmin = ($_SESSION["rol"] ?? "") === "administrador";
 
+// Reemplaza los insumos de stock (para descuento automático) de un item del menú a partir de un JSON.
 function guardarIngredientes(PDO $pdo, string $idMenu, string $json): void {
     $ingredientes = json_decode($json, true) ?: [];
     $pdo->prepare("DELETE FROM menu_ingredientes WHERE ID_Menu = ?")->execute([$idMenu]);
@@ -18,20 +20,60 @@ function guardarIngredientes(PDO $pdo, string $idMenu, string $json): void {
     }
 }
 
+// Receta de cocina (texto libre): pasos de preparación, tiempo, porciones y notas.
+// Los ingredientes ya no se repiten aquí — se usan directo los "Insumos de stock"
+// (menu_ingredientes) como la única lista de ingredientes, así no hay que escribirlos dos veces.
+function guardarReceta(PDO $pdo, string $idMenu, string $preparacion, string $tiempo, string $porciones, string $notas): void {
+    $preparacion = trim($preparacion);
+    $tiempo = trim($tiempo);
+    $porciones = trim($porciones);
+    $notas = trim($notas);
+
+    if ($preparacion === "" && $tiempo === "" && $porciones === "" && $notas === "") {
+        $pdo->prepare("DELETE FROM menu_receta WHERE ID_Menu = ?")->execute([$idMenu]);
+        return;
+    }
+
+    $stmt = $pdo->prepare("INSERT INTO menu_receta (ID_Menu, preparacion, tiempo_preparacion, porciones, notas)
+                            VALUES (?,?,?,?,?)
+                            ON DUPLICATE KEY UPDATE preparacion=VALUES(preparacion),
+                                                    tiempo_preparacion=VALUES(tiempo_preparacion), porciones=VALUES(porciones), notas=VALUES(notas)");
+    $stmt->execute([$idMenu, $preparacion ?: null, $tiempo ?: null, $porciones ?: null, $notas ?: null]);
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
+    if (!$esAdmin && in_array($_POST["accion"], ["guardar", "editar", "eliminar", "reactivar"], true)) {
+        $error = "Solo un administrador puede modificar el menú.";
+        registrarAuditoria($pdo, "menu", "Intento de modificación denegado", "Acción: " . $_POST["accion"] . " (rol: " . ($_SESSION["rol"] ?? "?") . ")");
+    } else {
+
     if ($_POST["accion"] === "guardar") {
-        $pdo->beginTransaction();
-        try {
-            $stmt = $pdo->prepare("INSERT INTO menu (ID_Menu, nombre, precio, tipo, descripcion_men, ID_Producto)
-                                    VALUES (?,?,?,?,?,NULL)");
-            $stmt->execute([$_POST["id_menu"], $_POST["nombre"], $_POST["precio"], $_POST["tipo"], $_POST["descripcion"]]);
-            guardarIngredientes($pdo, $_POST["id_menu"], $_POST["ingredientes_json"] ?? "[]");
-            $pdo->commit();
-            $mensaje = "Item agregado correctamente.";
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $error = "Error al agregar (¿el ID ya existe?): " . $e->getMessage();
+        // El ID es la llave primaria de todas formas, pero lo revisamos antes para
+        // dar un mensaje claro en vez de una excepción críptica de MySQL.
+        $stmtExiste = $pdo->prepare("SELECT 1 FROM menu WHERE ID_Menu = ?");
+        $stmtExiste->execute([$_POST["id_menu"]]);
+        if ($stmtExiste->fetch()) {
+            $error = "Ya existe un plato con el ID \"" . htmlspecialchars($_POST["id_menu"]) . "\". Usa uno distinto.";
+        } else {
+            $pdo->beginTransaction();
+            try {
+                $stmt = $pdo->prepare("INSERT INTO menu (ID_Menu, nombre, precio, tipo, descripcion_men, ID_Producto)
+                                        VALUES (?,?,?,?,?,NULL)");
+                $stmt->execute([$_POST["id_menu"], $_POST["nombre"], $_POST["precio"], $_POST["tipo"], $_POST["descripcion"]]);
+                guardarIngredientes($pdo, $_POST["id_menu"], $_POST["ingredientes_json"] ?? "[]");
+                guardarReceta(
+                    $pdo, $_POST["id_menu"],
+                    $_POST["receta_preparacion"] ?? "",
+                    $_POST["receta_tiempo"] ?? "", $_POST["receta_porciones"] ?? "", $_POST["receta_notas"] ?? ""
+                );
+                $pdo->commit();
+                $mensaje = "Item agregado correctamente.";
+                registrarAuditoria($pdo, "menu", "Item agregado", $_POST["id_menu"] . " - " . $_POST["nombre"]);
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                $error = "Error al agregar: " . $e->getMessage();
+            }
         }
     }
 
@@ -51,9 +93,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
             }
             ksort($recetaAnteriorNorm);
 
+            $stmtCocinaAnterior = $pdo->prepare("SELECT preparacion, tiempo_preparacion, porciones, notas FROM menu_receta WHERE ID_Menu = ?");
+            $stmtCocinaAnterior->execute([$_POST["id_menu"]]);
+            $cocinaAnterior = $stmtCocinaAnterior->fetch(PDO::FETCH_ASSOC) ?: ["preparacion" => null, "tiempo_preparacion" => null, "porciones" => null, "notas" => null];
+
             $stmt = $pdo->prepare("UPDATE menu SET nombre=?, precio=?, tipo=?, descripcion_men=? WHERE ID_Menu=?");
             $stmt->execute([$_POST["nombre"], $_POST["precio"], $_POST["tipo"], $_POST["descripcion"], $_POST["id_menu"]]);
             guardarIngredientes($pdo, $_POST["id_menu"], $_POST["ingredientes_json"] ?? "[]");
+            guardarReceta(
+                $pdo, $_POST["id_menu"],
+                $_POST["receta_preparacion"] ?? "",
+                $_POST["receta_tiempo"] ?? "", $_POST["receta_porciones"] ?? "", $_POST["receta_notas"] ?? ""
+            );
             $pdo->commit();
             $mensaje = "Item actualizado correctamente.";
 
@@ -70,7 +121,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
             }
             ksort($recetaNuevaNorm);
             if ($recetaAnteriorNorm !== $recetaNuevaNorm) {
-                $detalleAudit .= " — receta modificada";
+                $detalleAudit .= " — insumos de stock modificados";
+            }
+
+            $cocinaCambio = trim($cocinaAnterior["preparacion"] ?? "") !== trim($_POST["receta_preparacion"] ?? "")
+                || trim($cocinaAnterior["tiempo_preparacion"] ?? "") !== trim($_POST["receta_tiempo"] ?? "")
+                || trim($cocinaAnterior["porciones"] ?? "") !== trim($_POST["receta_porciones"] ?? "")
+                || trim($cocinaAnterior["notas"] ?? "") !== trim($_POST["receta_notas"] ?? "");
+            if ($cocinaCambio) {
+                $detalleAudit .= " — receta de cocina modificada";
             }
 
             registrarAuditoria($pdo, "menu", "Item editado", $detalleAudit);
@@ -81,7 +140,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 
     if ($_POST["accion"] === "eliminar") {
-        // menu_ingredientes tiene ON DELETE CASCADE, pero pedido_detalle NO
+        // menu_ingredientes y menu_receta tienen ON DELETE CASCADE, pero pedido_detalle NO
         // (con razón: no queremos que un pedido viejo pierda su referencia).
         // Si el plato ya se usó en algún pedido, lo desactivamos en vez de borrarlo.
         try {
@@ -105,6 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         $mensaje = "Item reactivado.";
         registrarAuditoria($pdo, "menu", "Item reactivado", $_POST["id_menu"]);
     }
+    }
 }
 
 $buscar = trim($_GET["buscar"] ?? "");
@@ -116,13 +176,24 @@ if ($buscar !== "") {
 }
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Adjuntamos la receta de cada plato (para mostrarla y para poder editarla)
+// Adjuntamos los insumos de stock de cada plato (para mostrarlos y para poder editarlos)
 $ingStmt = $pdo->prepare("SELECT i.ID_Producto, i.cantidad_necesaria, p.nombre_pro
                            FROM menu_ingredientes i JOIN producto p ON p.ID_Producto = i.ID_Producto
                            WHERE i.ID_Menu = ?");
+// Adjuntamos la receta de cocina (texto libre) de cada plato, para prellenar el form al editar
+$recetaStmt = $pdo->prepare("SELECT ingredientes, preparacion, tiempo_preparacion, porciones, notas
+                              FROM menu_receta WHERE ID_Menu = ?");
 foreach ($items as &$it) {
     $ingStmt->execute([$it["ID_Menu"]]);
     $it["ingredientes"] = $ingStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $recetaStmt->execute([$it["ID_Menu"]]);
+    $receta = $recetaStmt->fetch(PDO::FETCH_ASSOC);
+    $it["receta_preparacion"] = $receta["preparacion"] ?? "";
+    $it["receta_tiempo"] = $receta["tiempo_preparacion"] ?? "";
+    $it["receta_porciones"] = $receta["porciones"] ?? "";
+    $it["receta_notas"] = $receta["notas"] ?? "";
+    $it["tiene_receta"] = ($it["receta_preparacion"] !== "" || count($it["ingredientes"]) > 0);
 }
 unset($it);
 
@@ -139,7 +210,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;}
 .pd-field{display:flex;flex-direction:column;gap:4px;}
 .pd-field label{font-size:13px;color:#444;}
-.pd-field input,.pd-field select{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:150px;}
+.pd-field input,.pd-field select,.pd-field textarea{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:150px;}
 .pd-field.chico input{min-width:70px;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
@@ -158,12 +229,13 @@ require_once __DIR__ . "/includes/layout_top.php";
         <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
     </div>
     <button type="submit">BUSCAR</button>
-    <?php if ($buscar): ?><a href="menu.php" style="align-self:center;">Limpiar</a><?php endif; ?>
+    <?php if ($buscar): ?><a class="btn" href="menu.php">Limpiar</a><?php endif; ?>
 </form>
 
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
+<?php if ($esAdmin): ?>
 <div class="pd-card">
 <h3 style="margin-top:0;" id="tituloForm">Agregar item nuevo</h3>
 <form method="POST" id="formMenu">
@@ -173,7 +245,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <div class="pd-row">
         <div class="pd-field">
             <label>ID Menú</label>
-            <input type="text" name="id_menu" id="id_menu" required>
+            <input type="text" name="id_menu" id="id_menu" required autocomplete="off">
         </div>
         <div class="pd-field" style="flex:1; min-width:180px;">
             <label>Nombre</label>
@@ -198,7 +270,32 @@ require_once __DIR__ . "/includes/layout_top.php";
 
     <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
 
-    <h4 style="margin:0 0 8px 0;">Receta (insumos de stock que usa este plato)</h4>
+    <h4 style="margin:0 0 8px 0;">Preparación</h4>
+    <div class="pd-row">
+        <div class="pd-field" style="flex:1; min-width:280px;">
+            <label>Pasos de preparación</label>
+            <textarea name="receta_preparacion" id="receta_preparacion" rows="5" style="width:100%;"></textarea>
+        </div>
+    </div>
+    <div class="pd-row" style="margin-top:10px;">
+        <div class="pd-field chico">
+            <label>Tiempo de preparación</label>
+            <input type="text" name="receta_tiempo" id="receta_tiempo" placeholder="ej. 20 min">
+        </div>
+        <div class="pd-field chico">
+            <label>Porciones</label>
+            <input type="text" name="receta_porciones" id="receta_porciones" placeholder="ej. 1 persona">
+        </div>
+        <div class="pd-field" style="flex:1; min-width:220px;">
+            <label>Notas</label>
+            <input type="text" name="receta_notas" id="receta_notas">
+        </div>
+    </div>
+
+    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
+
+    <h4 style="margin:0 0 8px 0;">Ingredientes (también descuentan del stock automáticamente)</h4>
+    <p style="margin:0 0 10px 0; color:#777; font-size:13px;">Esta lista es la única fuente de ingredientes: se usa tanto para la receta impresa como para descontar inventario — no hace falta escribirlos en otro lado.</p>
     <div class="pd-row">
         <div class="pd-field" style="flex:1; min-width:220px;">
             <label>Buscar insumo</label>
@@ -228,10 +325,15 @@ require_once __DIR__ . "/includes/layout_top.php";
     </div>
 </form>
 </div>
+<?php else: ?>
+<div class="pd-card">
+<p style="margin:0; color:#777;">Vista de solo lectura. Solo un administrador puede crear, editar o desactivar items del menú.</p>
+</div>
+<?php endif; ?>
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Receta</th><th>Estado</th><th></th></tr>
+<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Insumos (stock)</th><th>Estado</th><th></th></tr>
 <?php if (count($items) === 0): ?>
 <tr><td colspan="8">No se encontraron items.</td></tr>
 <?php endif; ?>
@@ -251,11 +353,15 @@ require_once __DIR__ . "/includes/layout_top.php";
                 )));
             ?>"><?php echo count($it["ingredientes"]); ?> insumo(s)</span>
         <?php else: ?>
-            <span class="receta-vacia">sin receta</span>
+            <span class="receta-vacia">sin insumos</span>
         <?php endif; ?>
     </td>
     <td><?php echo $it["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
+        <a href="receta_pdf.php?id=<?php echo urlencode($it['ID_Menu']); ?>" target="_blank">
+            <button type="button">Receta (PDF)</button>
+        </a>
+        <?php if ($esAdmin): ?>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
         <?php if ($it["activo"]): ?>
         <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este item?');">
@@ -270,6 +376,7 @@ require_once __DIR__ . "/includes/layout_top.php";
             <button type="submit">REACTIVAR</button>
         </form>
         <?php endif; ?>
+        <?php endif; ?>
     </td>
 </tr>
 <?php endforeach; ?>
@@ -282,7 +389,7 @@ let idInsumoSeleccionado = "";
 let nombreInsumoSeleccionado = "";
 let receta = [];
 
-document.getElementById("buscar_insumo").addEventListener("keyup", function () {
+document.getElementById("buscar_insumo")?.addEventListener("keyup", function () {
     const texto = this.value.toLowerCase();
     const tabla = document.getElementById("tablaResultadosInsumo");
     tabla.innerHTML = "<tr><th>ID</th><th>Nombre</th><th>Stock actual</th></tr>";
@@ -302,6 +409,7 @@ document.getElementById("buscar_insumo").addEventListener("keyup", function () {
         });
 });
 
+// Valida y agrega el insumo seleccionado a la receta de stock del item del menú en edición.
 function agregarIngrediente() {
     const cantidad = parseFloat(document.getElementById("cantidad_insumo").value);
     if (!idInsumoSeleccionado || isNaN(cantidad) || cantidad <= 0) {
@@ -326,6 +434,7 @@ function quitarIngrediente(idx) {
 
 function renderReceta() {
     const tabla = document.getElementById("tablaReceta");
+    if (!tabla) return;
     tabla.innerHTML = "<tr><th>Insumo</th><th>Cantidad necesaria</th><th></th></tr>";
     if (receta.length === 0) {
         const fila = tabla.insertRow();
@@ -344,6 +453,7 @@ function prepararEnvio(accion) {
     return true;
 }
 
+// Carga los datos de un item del menú (y su receta de cocina) en el formulario para editarlo.
 function cargarFila(item) {
     document.getElementById("tituloForm").textContent = "Editando " + item.ID_Menu;
     document.getElementById("id_menu").value = item.ID_Menu;
@@ -352,6 +462,11 @@ function cargarFila(item) {
     document.getElementById("precio").value = item.precio;
     document.getElementById("tipo").value = item.tipo;
     document.getElementById("descripcion").value = item.descripcion_men;
+
+    document.getElementById("receta_preparacion").value = item.receta_preparacion || "";
+    document.getElementById("receta_tiempo").value = item.receta_tiempo || "";
+    document.getElementById("receta_porciones").value = item.receta_porciones || "";
+    document.getElementById("receta_notas").value = item.receta_notas || "";
 
     receta = (item.ingredientes || []).map(i => ({
         id_producto: i.ID_Producto, nombre: i.nombre_pro, cantidad: parseFloat(i.cantidad_necesaria)

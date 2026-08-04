@@ -6,8 +6,14 @@ require_once __DIR__ . "/includes/auditoria.php";
 
 $mensaje = "";
 $error = "";
+$esAdmin = ($_SESSION["rol"] ?? "") === "administrador";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
+
+    if (!$esAdmin && in_array($_POST["accion"], ["guardar", "editar", "eliminar", "reactivar"], true)) {
+        $error = "Solo un administrador puede modificar el stock.";
+        registrarAuditoria($pdo, "stock", "Intento de modificación denegado", "Acción: " . $_POST["accion"] . " (rol: " . ($_SESSION["rol"] ?? "?") . ")");
+    } else {
 
     if ($_POST["accion"] === "guardar") {
         $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
@@ -92,15 +98,27 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         $mensaje = "Producto reactivado.";
         registrarAuditoria($pdo, "stock", "Producto reactivado", $_POST["id_producto"]);
     }
+    }
 }
 
 $buscar = trim($_GET["buscar"] ?? "");
+$filtroProveedor = trim($_GET["proveedor"] ?? "");
+
+$condiciones = [];
+$params = [];
 if ($buscar !== "") {
-    $stmt = $pdo->prepare("SELECT * FROM producto WHERE nombre_pro LIKE ? OR ID_Producto LIKE ?");
-    $stmt->execute(["%$buscar%", "%$buscar%"]);
-} else {
-    $stmt = $pdo->query("SELECT * FROM producto");
+    $condiciones[] = "(prod.nombre_pro LIKE ? OR prod.ID_Producto LIKE ?)";
+    $params[] = "%$buscar%";
+    $params[] = "%$buscar%";
 }
+if ($filtroProveedor !== "") {
+    $condiciones[] = "prod.ID_prov = ?";
+    $params[] = $filtroProveedor;
+}
+$sql = "SELECT prod.*, pv.nom_prov FROM producto prod LEFT JOIN proveedores pv ON pv.ID_prov = prod.ID_prov"
+     . ($condiciones ? " WHERE " . implode(" AND ", $condiciones) : "");
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Productos con cantidad baja (para el listado de "compras a realizar")
@@ -110,7 +128,7 @@ $bajos = $pdo->query("SELECT prod.*, pv.nom_prov, pv.tel_prov
                        LEFT JOIN proveedores pv ON pv.ID_prov = prod.ID_prov
                        WHERE prod.cantidad_pro <= 5 AND prod.activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 
-$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
+$proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1 ORDER BY nom_prov")->fetchAll(PDO::FETCH_ASSOC);
 
 $titulo_pagina = "STOCK";
 require_once __DIR__ . "/includes/layout_top.php";
@@ -138,8 +156,19 @@ require_once __DIR__ . "/includes/layout_top.php";
         <label>Buscar</label>
         <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
     </div>
+    <div class="pd-field">
+        <label>Proveedor</label>
+        <select name="proveedor">
+            <option value="">-- todos --</option>
+            <?php foreach ($proveedores as $pr): ?>
+            <option value="<?php echo htmlspecialchars($pr["ID_prov"]); ?>" <?php echo $filtroProveedor === $pr["ID_prov"] ? "selected" : ""; ?>>
+                <?php echo htmlspecialchars($pr["ID_prov"] . " - " . $pr["nom_prov"]); ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
     <button type="submit">BUSCAR</button>
-    <?php if ($buscar): ?><a href="stock.php" style="align-self:center;">Limpiar</a><?php endif; ?>
+    <?php if ($buscar || $filtroProveedor): ?><a class="btn" href="stock.php">Limpiar</a><?php endif; ?>
 </form>
 
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
@@ -147,9 +176,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Estado</th><th></th></tr>
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Proveedor</th><th>Estado</th><th></th></tr>
 <?php if (count($productos) === 0): ?>
-<tr><td colspan="7">No se encontraron productos.</td></tr>
+<tr><td colspan="8">No se encontraron productos.</td></tr>
 <?php endif; ?>
 <?php foreach ($productos as $p): ?>
 <tr class="<?php echo ($p["cantidad_pro"] <= 5 && $p["activo"]) ? "fila-bajo" : ""; ?>"<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
@@ -158,8 +187,10 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td><?php echo number_format((float) $p["cantidad_pro"], 2); ?><?php if ($p["cantidad_pro"] <= 5 && $p["activo"]): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
     <td><?php echo number_format((float) $p["precio_pro"], 2); ?></td>
     <td><?php echo htmlspecialchars($p["categoria_pro"]); ?></td>
+    <td><?php echo $p["nom_prov"] ? htmlspecialchars($p["nom_prov"]) : '<span style="color:#999;">—</span>'; ?></td>
     <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
     <td>
+        <?php if ($esAdmin): ?>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
         <?php if ($p["activo"]): ?>
         <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este producto?');">
@@ -174,12 +205,16 @@ require_once __DIR__ . "/includes/layout_top.php";
             <button type="submit">REACTIVAR</button>
         </form>
         <?php endif; ?>
+        <?php else: ?>
+            <span style="color:#999;">—</span>
+        <?php endif; ?>
     </td>
 </tr>
 <?php endforeach; ?>
 </table>
 </div>
 
+<?php if ($esAdmin): ?>
 <div class="pd-card">
 <h3 style="margin-top:0;" id="tituloForm">Agregar producto nuevo</h3>
 <form method="POST" id="formStock">
@@ -242,6 +277,11 @@ require_once __DIR__ . "/includes/layout_top.php";
     </div>
 </form>
 </div>
+<?php else: ?>
+<div class="pd-card">
+<p style="margin:0; color:#777;">Vista de solo lectura. Solo un administrador puede crear, editar o desactivar productos.</p>
+</div>
+<?php endif; ?>
 
 <div class="pd-card">
 <h3 style="margin-top:0;">Productos con poco stock (posibles compras a realizar)</h3>
@@ -267,6 +307,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 </table>
 </div>
 
+<?php if ($esAdmin): ?>
 <script>
 const CATEGORIAS_ESTANDAR = [
     "Carnes y Embutidos", "Lácteos", "Verduras y Vegetales", "Frutas",
@@ -313,5 +354,6 @@ function nuevoProducto() {
     document.getElementById("btnNuevo").style.display = "none";
 }
 </script>
+<?php endif; ?>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>
