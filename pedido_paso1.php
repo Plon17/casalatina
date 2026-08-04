@@ -30,6 +30,17 @@ if ($idEditar) {
     }
 }
 
+// Mesas disponibles para el desplegable (mismo total que pedidos_listado.php — mantenerlos sincronizados)
+$totalMesas = 12;
+$mesasOcupadas = $pdo->query("SELECT num_mesa FROM pedido WHERE tipo_ped='Mesa' AND estado IN ('Abierto','EnCocina')")->fetchAll(PDO::FETCH_COLUMN);
+$mesaActualPropia = $pedidoExistente["num_mesa"] ?? null;
+$mesasDisponibles = [];
+for ($i = 1; $i <= $totalMesas; $i++) {
+    if (!in_array((string) $i, $mesasOcupadas) || (string) $i === (string) $mesaActualPropia) {
+        $mesasDisponibles[] = $i;
+    }
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cancelar_pedido") {
     $idCancelar = $_POST["id_pedido_existente"] ?? "";
     if ($idCancelar) {
@@ -47,15 +58,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
 
     if (!$items || count($items) === 0) {
         $error = "El pedido no tiene productos agregados.";
-    } elseif (($_POST["tipo_ped"] ?? "") === "Mesa" && empty($_POST["num_mesa"])) {
+    } elseif (empty($_POST["num_mesa"])) {
         $error = "Selecciona un número de mesa.";
     } elseif ($idPedidoExistente) {
         // Actualizar un pedido "Abierto" existente (venimos del botón Volver en el Paso 2)
         $pdo->beginTransaction();
         try {
-            $stmt = $pdo->prepare("UPDATE pedido SET num_mesa=?, cod_empleado=?, tipo_ped=?
+            $stmt = $pdo->prepare("UPDATE pedido SET num_mesa=?, cod_empleado=?, tipo_ped='Mesa'
                                     WHERE ID_Pedido=? AND estado='Abierto'");
-            $stmt->execute([$_POST["num_mesa"] ?: null, $_POST["cajero"], $_POST["tipo_ped"], $idPedidoExistente]);
+            $stmt->execute([$_POST["num_mesa"], $_SESSION["cod_empleado"] ?? null, $idPedidoExistente]);
 
             $pdo->prepare("DELETE FROM pedido_detalle WHERE ID_Pedido = ?")->execute([$idPedidoExistente]);
 
@@ -84,9 +95,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
 
             $stmt = $pdo->prepare("INSERT INTO pedido
                 (ID_Pedido, num_mesa, cod_empleado, tipo_ped, fecha, subtotal, impuesto, total, estado)
-                VALUES (?,?,?,?,?,0,0,0,'Abierto')");
+                VALUES (?,?,?,'Mesa',?,0,0,0,'Abierto')");
             $stmt->execute([
-                $idPedido, $_POST["num_mesa"] ?: null, $_POST["cajero"], $_POST["tipo_ped"], date("Y-m-d")
+                $idPedido, $_POST["num_mesa"], $_SESSION["cod_empleado"] ?? null, date("Y-m-d")
             ]);
 
             $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
@@ -126,10 +137,13 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 </style>
 
 <p class="titulo-modulo">Paso 1 de 3 — Seleccionar mesa y agregar productos</p>
-<p><a href="pedidos_listado.php">← Volver a Mesas</a></p>
+<p><a class="btn-link" href="pedidos_listado.php">← Volver a Mesas</a></p>
 
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 <?php if ($idEditar): ?><p>Editando pedido <strong><?php echo htmlspecialchars($idEditar); ?></strong> (aún no enviado a cocina).</p><?php endif; ?>
@@ -137,19 +151,19 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
     <div class="pd-row">
         <div class="pd-field">
-            <label>Tipo de pedido</label>
-            <select id="tipo_ped" onchange="toggleMesa()">
-                <option value="Mesa" <?php echo (!$pedidoExistente || $pedidoExistente["tipo_ped"] === "Mesa") ? "selected" : ""; ?>>Mesa</option>
-                <option value="Envio" <?php echo ($pedidoExistente && $pedidoExistente["tipo_ped"] === "Envio") ? "selected" : ""; ?>>Envío</option>
-            </select>
-        </div>
-        <div class="pd-field chico" id="fila_mesa">
             <label>N° Mesa</label>
-            <input type="text" id="num_mesa" value="<?php echo htmlspecialchars($pedidoExistente["num_mesa"] ?? $mesaPrefill ?? ""); ?>">
+            <select id="num_mesa">
+                <?php foreach ($mesasDisponibles as $m): ?>
+                <option value="<?php echo $m; ?>"
+                    <?php echo ((string) $m === (string) ($mesaActualPropia ?? $mesaPrefill ?? "")) ? "selected" : ""; ?>>
+                    Mesa <?php echo $m; ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
         </div>
         <div class="pd-field">
             <label>Cajero</label>
-            <input type="text" id="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>">
+            <input type="text" id="cajero" value="<?php echo htmlspecialchars($_SESSION['cod_empleado'] ?? ''); ?>" readonly>
         </div>
     </div>
 </div>
@@ -204,8 +218,6 @@ require_once __DIR__ . "/includes/layout_top.php";
     <input type="hidden" name="accion" value="guardar_paso1">
     <input type="hidden" name="id_pedido_existente" value="<?php echo htmlspecialchars($idEditar ?? ""); ?>">
     <input type="hidden" name="num_mesa" id="f_num_mesa">
-    <input type="hidden" name="cajero" id="f_cajero">
-    <input type="hidden" name="tipo_ped" id="f_tipo_ped">
     <input type="hidden" name="detalle_json" id="f_detalle_json">
 </form>
 
@@ -219,11 +231,6 @@ let itemsPedido = <?php echo json_encode(array_map(function ($d) {
         "cantidad" => (int) $d["cantidad"]
     ];
 }, $itemsExistentes)); ?>;
-
-function toggleMesa() {
-    const tipo = document.getElementById("tipo_ped").value;
-    document.getElementById("fila_mesa").style.display = (tipo === "Mesa") ? "flex" : "none";
-}
 
 document.getElementById("buscar_menu").addEventListener("keyup", function () {
     const texto = this.value.toLowerCase();
@@ -281,14 +288,11 @@ function continuarPaso2() {
         alert("Agrega al menos un producto antes de continuar.");
         return;
     }
-    const tipoPed = document.getElementById("tipo_ped").value;
-    if (tipoPed === "Mesa" && !document.getElementById("num_mesa").value) {
-        alert("Ingresa el número de mesa.");
+    if (!document.getElementById("num_mesa").value) {
+        alert("Selecciona el número de mesa.");
         return;
     }
     document.getElementById("f_num_mesa").value = document.getElementById("num_mesa").value;
-    document.getElementById("f_cajero").value = document.getElementById("cajero").value;
-    document.getElementById("f_tipo_ped").value = tipoPed;
     document.getElementById("f_detalle_json").value = JSON.stringify(itemsPedido);
     document.getElementById("formGuardar").submit();
 }
@@ -299,7 +303,6 @@ function cancelarPedido() {
     }
 }
 
-toggleMesa();
 renderTablaPedido();
 </script>
 

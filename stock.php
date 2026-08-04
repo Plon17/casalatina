@@ -10,12 +10,14 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
     if ($_POST["accion"] === "guardar") {
+        $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
+            ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
         try {
             $stmt = $pdo->prepare("INSERT INTO producto (ID_Producto, nombre_pro, cantidad_pro, precio_pro, categoria_pro, ID_prov)
                                     VALUES (?,?,?,?,?,?)");
             $stmt->execute([
                 $_POST["id_producto"], $_POST["nombre"], $_POST["cantidad"],
-                $_POST["precio"], $_POST["categoria"], $_POST["id_proveedor"] ?: null
+                $_POST["precio"], $categoriaFinal, $_POST["id_proveedor"] ?: null
             ]);
             $mensaje = "Producto agregado.";
             registrarAuditoria($pdo, "stock", "Producto agregado", $_POST["id_producto"] . " - " . $_POST["nombre"] . " (cantidad inicial: " . $_POST["cantidad"] . ")");
@@ -25,6 +27,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 
     if ($_POST["accion"] === "editar") {
+        $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
+            ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
         // Traemos cantidad y precio anteriores para poder marcar en la auditoría si
         // alguien los cambió a mano (fuera del flujo normal de Compras)
         $stmtAnterior = $pdo->prepare("SELECT cantidad_pro, precio_pro FROM producto WHERE ID_Producto = ?");
@@ -37,7 +41,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                                 WHERE ID_Producto=?");
         $stmt->execute([
             $_POST["nombre"], $_POST["cantidad"], $_POST["precio"],
-            $_POST["categoria"], $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
+            $categoriaFinal, $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
         ]);
         $mensaje = "Producto actualizado.";
 
@@ -200,7 +204,23 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field">
             <label>Categoría</label>
-            <input type="text" name="categoria" id="categoria">
+            <select name="categoria" id="categoria" onchange="toggleCategoriaOtro()">
+                <option value="Carnes y Embutidos">Carnes y Embutidos</option>
+                <option value="Lácteos">Lácteos</option>
+                <option value="Verduras y Vegetales">Verduras y Vegetales</option>
+                <option value="Frutas">Frutas</option>
+                <option value="Granos, Cereales y Harinas">Granos, Cereales y Harinas</option>
+                <option value="Condimentos y Especias">Condimentos y Especias</option>
+                <option value="Bebidas">Bebidas</option>
+                <option value="Panadería y Tortillas">Panadería y Tortillas</option>
+                <option value="Enlatados y Conservas">Enlatados y Conservas</option>
+                <option value="Desechables y Empaques">Desechables y Empaques</option>
+                <option value="Otros">Otros</option>
+            </select>
+        </div>
+        <div class="pd-field" id="fila_categoria_otro" style="display:none;">
+            <label>Especifica la categoría</label>
+            <input type="text" name="categoria_otro" id="categoria_otro" placeholder="Escribe la categoría">
         </div>
         <div class="pd-field">
             <label>Proveedor</label>
@@ -248,6 +268,17 @@ require_once __DIR__ . "/includes/layout_top.php";
 </div>
 
 <script>
+const CATEGORIAS_ESTANDAR = [
+    "Carnes y Embutidos", "Lácteos", "Verduras y Vegetales", "Frutas",
+    "Granos, Cereales y Harinas", "Condimentos y Especias", "Bebidas",
+    "Panadería y Tortillas", "Enlatados y Conservas", "Desechables y Empaques"
+];
+
+function toggleCategoriaOtro() {
+    const esOtro = document.getElementById("categoria").value === "Otros";
+    document.getElementById("fila_categoria_otro").style.display = esOtro ? "flex" : "none";
+}
+
 function cargarFila(p) {
     document.getElementById("tituloForm").textContent = "Editando producto " + p.ID_Producto;
     document.getElementById("id_producto").value = p.ID_Producto;
@@ -255,7 +286,16 @@ function cargarFila(p) {
     document.getElementById("nombre").value = p.nombre_pro;
     document.getElementById("cantidad").value = p.cantidad_pro;
     document.getElementById("precio").value = p.precio_pro;
-    document.getElementById("categoria").value = p.categoria_pro;
+
+    if (CATEGORIAS_ESTANDAR.includes(p.categoria_pro)) {
+        document.getElementById("categoria").value = p.categoria_pro;
+        document.getElementById("categoria_otro").value = "";
+    } else {
+        document.getElementById("categoria").value = "Otros";
+        document.getElementById("categoria_otro").value = p.categoria_pro || "";
+    }
+    toggleCategoriaOtro();
+
     document.getElementById("id_proveedor").value = p.ID_prov || "";
     document.getElementById("btnGuardar").style.display = "none";
     document.getElementById("btnEditar").style.display = "inline-block";
@@ -267,6 +307,7 @@ function nuevoProducto() {
     document.getElementById("tituloForm").textContent = "Agregar producto nuevo";
     document.getElementById("formStock").reset();
     document.getElementById("id_producto").readOnly = false;
+    toggleCategoriaOtro();
     document.getElementById("btnGuardar").style.display = "inline-block";
     document.getElementById("btnEditar").style.display = "none";
     document.getElementById("btnNuevo").style.display = "none";

@@ -24,7 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
 
             $stmt = $pdo->prepare("INSERT INTO compras (ID_compras, ID_Producto, fecha, cantidad, monto_total, ID_prov)
                                     VALUES (?,?,?,?,?,?)");
-            $stmt->execute([$idCompra, $idProducto, $_POST["fecha"], $cantidad, $monto, $idProv]);
+            $stmt->execute([$idCompra, $idProducto, date("Y-m-d"), $cantidad, $monto, $idProv]);
 
             // Conectamos automáticamente la compra con el stock
             $stmt2 = $pdo->prepare("UPDATE producto SET cantidad_pro = cantidad_pro + ? WHERE ID_Producto = ?");
@@ -85,7 +85,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field">
             <label>Fecha</label>
-            <input type="date" name="fecha" value="<?php echo date('Y-m-d'); ?>" required>
+            <input type="date" value="<?php echo date('Y-m-d'); ?>" readonly>
         </div>
     </div>
 

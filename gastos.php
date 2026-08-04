@@ -117,7 +117,6 @@ require_once __DIR__ . "/includes/layout_top.php";
         <label>Tipo</label>
         <select name="tipo" required>
             <option value="Publico">Público</option>
-            <option value="Privado">Privado</option>
             <option value="Operativo">Operativo</option>
         </select>
     </div>

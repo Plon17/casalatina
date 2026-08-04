@@ -165,53 +165,6 @@ require_once __DIR__ . "/includes/layout_top.php";
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
 <div class="pd-card">
-<table class="pd-tabla">
-<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Receta</th><th>Estado</th><th></th></tr>
-<?php if (count($items) === 0): ?>
-<tr><td colspan="8">No se encontraron items.</td></tr>
-<?php endif; ?>
-<?php foreach ($items as $it): ?>
-<tr<?php echo !$it["activo"] ? ' style="opacity:.55;"' : ''; ?>>
-    <td><?php echo htmlspecialchars($it["ID_Menu"]); ?></td>
-    <td><?php echo htmlspecialchars($it["nombre"]); ?></td>
-    <td><?php echo number_format((float) $it["precio"], 2); ?></td>
-    <td><?php echo htmlspecialchars($it["tipo"]); ?></td>
-    <td><?php echo htmlspecialchars($it["descripcion_men"]); ?></td>
-    <td>
-        <?php if (count($it["ingredientes"]) > 0): ?>
-            <span class="receta-badge" title="<?php
-                echo htmlspecialchars(implode(", ", array_map(
-                    fn($i) => $i["nombre_pro"] . " x" . $i["cantidad_necesaria"],
-                    $it["ingredientes"]
-                )));
-            ?>"><?php echo count($it["ingredientes"]); ?> insumo(s)</span>
-        <?php else: ?>
-            <span class="receta-vacia">sin receta</span>
-        <?php endif; ?>
-    </td>
-    <td><?php echo $it["activo"] ? "Activo" : "Inactivo"; ?></td>
-    <td>
-        <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
-        <?php if ($it["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este item?');">
-            <input type="hidden" name="accion" value="eliminar">
-            <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
-            <button type="submit">DESACTIVAR</button>
-        </form>
-        <?php else: ?>
-        <form method="POST" style="display:inline">
-            <input type="hidden" name="accion" value="reactivar">
-            <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
-            <button type="submit">REACTIVAR</button>
-        </form>
-        <?php endif; ?>
-    </td>
-</tr>
-<?php endforeach; ?>
-</table>
-</div>
-
-<div class="pd-card">
 <h3 style="margin-top:0;" id="tituloForm">Agregar item nuevo</h3>
 <form method="POST" id="formMenu">
     <input type="hidden" name="accion" id="accion" value="guardar">
@@ -274,6 +227,53 @@ require_once __DIR__ . "/includes/layout_top.php";
         <button type="button" id="btnNuevo" style="display:none;" onclick="nuevoItem()">+ NUEVO ITEM</button>
     </div>
 </form>
+</div>
+
+<div class="pd-card">
+<table class="pd-tabla">
+<tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Receta</th><th>Estado</th><th></th></tr>
+<?php if (count($items) === 0): ?>
+<tr><td colspan="8">No se encontraron items.</td></tr>
+<?php endif; ?>
+<?php foreach ($items as $it): ?>
+<tr<?php echo !$it["activo"] ? ' style="opacity:.55;"' : ''; ?>>
+    <td><?php echo htmlspecialchars($it["ID_Menu"]); ?></td>
+    <td><?php echo htmlspecialchars($it["nombre"]); ?></td>
+    <td><?php echo number_format((float) $it["precio"], 2); ?></td>
+    <td><?php echo htmlspecialchars($it["tipo"]); ?></td>
+    <td><?php echo htmlspecialchars($it["descripcion_men"]); ?></td>
+    <td>
+        <?php if (count($it["ingredientes"]) > 0): ?>
+            <span class="receta-badge" title="<?php
+                echo htmlspecialchars(implode(", ", array_map(
+                    fn($i) => $i["nombre_pro"] . " x" . $i["cantidad_necesaria"],
+                    $it["ingredientes"]
+                )));
+            ?>"><?php echo count($it["ingredientes"]); ?> insumo(s)</span>
+        <?php else: ?>
+            <span class="receta-vacia">sin receta</span>
+        <?php endif; ?>
+    </td>
+    <td><?php echo $it["activo"] ? "Activo" : "Inactivo"; ?></td>
+    <td>
+        <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($it)); ?>)">EDITAR</button>
+        <?php if ($it["activo"]): ?>
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este item?');">
+            <input type="hidden" name="accion" value="eliminar">
+            <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
+            <button type="submit">DESACTIVAR</button>
+        </form>
+        <?php else: ?>
+        <form method="POST" style="display:inline">
+            <input type="hidden" name="accion" value="reactivar">
+            <input type="hidden" name="id_menu" value="<?php echo htmlspecialchars($it["ID_Menu"]); ?>">
+            <button type="submit">REACTIVAR</button>
+        </form>
+        <?php endif; ?>
+    </td>
+</tr>
+<?php endforeach; ?>
+</table>
 </div>
 
 <script>

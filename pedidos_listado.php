@@ -12,7 +12,7 @@ $totalMesas = 12;
 $posicionesMesas = [
     1 => [20, 15], 2 => [35, 15], 3 => [50, 15], 4 => [65, 15],
     5 => [20, 42], 6 => [35, 42], 7 => [50, 42], 8 => [65, 42],
-    9 => [20, 68], 10 => [40, 68], 11 => [55, 68], 12 => [70, 68],
+    9 => [20, 68], 10 => [35, 68], 11 => [50, 68], 12 => [65, 68],
 ];
 
 // Pedidos de mesa activos, indexados por número de mesa
@@ -41,6 +41,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <style>
 .pd-card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:16px 20px;margin-bottom:18px;}
+.btn-link{display:inline-block; padding:6px 14px; border:1px solid var(--color-primary); border-radius:5px;
+    color:var(--color-primary); text-decoration:none; font-size:13px; font-weight:600;}
+.btn-link:hover{background:var(--color-primary); color:#fff;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
 .pd-tabla th{background:var(--color-surface-alt);}
@@ -92,7 +95,7 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <p class="titulo-modulo">Mesas / Pedidos activos</p>
 
-<p><a href="pedido_paso1.php">+ Nuevo pedido</a></p>
+<p><a class="btn-link" href="pedido_paso1.php">+ Nuevo pedido</a></p>
 
 <div class="pd-card">
 <h3 style="margin-top:0;">Mesas</h3>

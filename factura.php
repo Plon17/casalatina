@@ -52,7 +52,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     ?>
     <?php if (!$factura): ?>
         <p class="mensaje-error">No se encontró esa factura.</p>
-        <p class="no-print"><a href="factura.php">← Volver al historial</a></p>
+        <p class="no-print"><a class="btn-link" href="factura.php">← Volver al historial</a></p>
     <?php else: ?>
         <?php
         $detStmt = $pdo->prepare("SELECT d.cantidad, d.precio, m.nombre
@@ -62,7 +62,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         $detalle = $detStmt->fetchAll(PDO::FETCH_ASSOC);
         ?>
         <p class="no-print">
-            <a href="factura.php">← Volver al historial</a> &nbsp;|&nbsp;
+            <a class="btn-link" href="factura.php">← Volver al historial</a>
             <a href="factura_pdf.php?id=<?php echo urlencode($verId); ?>" target="_blank"><button type="button">Imprimir / Descargar PDF</button></a>
         </p>
 
@@ -137,7 +137,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         <div class="pd-field"><label>Desde</label><input type="date" name="desde" value="<?php echo htmlspecialchars($desde); ?>"></div>
         <div class="pd-field"><label>Hasta</label><input type="date" name="hasta" value="<?php echo htmlspecialchars($hasta); ?>"></div>
         <button type="submit">BUSCAR</button>
-        <?php if ($cliente || $idPedidoBuscar || $desde || $hasta): ?><a href="factura.php" style="align-self:center;">Limpiar</a><?php endif; ?>
+        <a class="btn" href="factura.php">Limpiar</a>
     </form>
     </div>
 
