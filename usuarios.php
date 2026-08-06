@@ -99,7 +99,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "edita
     $stmtActual->execute([$idUsuario]);
     $rolActual = $stmtActual->fetch()["rol"] ?? "";
 
-    if ($rolActual === "administrador" && $_POST["rol"] !== "administrador" && contarAdmins($pdo, $idUsuario) === 0) {
+    if ($idUsuario === ($_SESSION["ID_usuario"] ?? "") && $rolActual === "administrador" && $_POST["rol"] !== "administrador") {
+        $error = "No puedes quitarte tu propio rol de administrador.";
+    } elseif ($rolActual === "administrador" && $_POST["rol"] !== "administrador" && contarAdmins($pdo, $idUsuario) === 0) {
         $error = "No puedes quitarle el rol de administrador: es el único administrador que queda.";
     } else {
         if (!empty($_POST["contrasena"])) {

@@ -16,6 +16,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
 
     if (!$idProducto || $cantidad <= 0) {
         $error = "Selecciona un producto (usando el buscador) y una cantidad válida.";
+    } elseif ($cantidad > 500) {
+        $error = "La cantidad (" . $cantidad . ") supera el máximo permitido por compra (500 unidades). Si necesitas más, regístrala en varias compras.";
     } else {
         $pdo->beginTransaction();
         try {
@@ -97,7 +99,10 @@ require_once __DIR__ . "/includes/layout_top.php";
 
     <div class="pd-row" style="margin-top:10px;">
         <div class="pd-field" style="flex:1;"><label>Producto seleccionado</label><input type="text" id="nombre_producto" readonly></div>
-        <div class="pd-field chico"><label>Cantidad</label><input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" value="1" oninput="calcularMonto()" required></div>
+        <div class="pd-field chico">
+            <label>Cantidad (máx. 500)</label>
+            <input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" max="500" value="1" oninput="calcularMonto()" required>
+        </div>
         <div class="pd-field"><label>Monto total</label><input type="number" step="0.01" name="monto" id="monto" required></div>
         <div class="pd-field">
             <label>Proveedor de esta compra</label>
@@ -185,6 +190,12 @@ document.getElementById("formCompra").addEventListener("submit", function (e) {
     if (!document.getElementById("id_producto").value) {
         e.preventDefault();
         alert("Selecciona un producto de la lista de búsqueda.");
+        return;
+    }
+    const cantidad = parseFloat(document.getElementById("cantidad").value) || 0;
+    if (cantidad > 500) {
+        e.preventDefault();
+        alert("La cantidad máxima permitida por compra es 500 unidades. Si necesitas más, regístrala en varias compras.");
     }
 });
 </script>

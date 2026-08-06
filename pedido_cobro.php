@@ -239,7 +239,11 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
 <div class="pd-card">
 <h3 style="margin-top:0;">Dividir cuenta</h3>
 <div class="pd-row">
-    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()"></div>
+    <div class="pd-field">
+        <label>Entre cuántas personas</label>
+        <input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()">
+        <span id="avisoPersonas" style="display:none; color:#c0392b; font-size:12px; margin-top:2px;"></span>
+    </div>
 </div>
 <p id="divisionResultado" style="margin-top:10px;"></p>
 <button type="button" onclick="imprimirDivision()">Imprimir división</button>
@@ -306,7 +310,23 @@ function validarAntesDeCobrar() {
 
 function actualizarDivision() {
     const { total } = calcularTotales();
-    const personas = Math.min(20, Math.max(1, parseInt(document.getElementById("personas").value) || 1));
+    const inputPersonas = document.getElementById("personas");
+    const aviso = document.getElementById("avisoPersonas");
+    const valorCrudo = parseInt(inputPersonas.value) || 1;
+
+    let personas = valorCrudo;
+    if (valorCrudo > 20) {
+        personas = 20;
+        aviso.textContent = "⚠ Máximo 20 personas. Se está calculando con 20.";
+        aviso.style.display = "block";
+    } else if (valorCrudo < 1) {
+        personas = 1;
+        aviso.textContent = "⚠ Mínimo 1 persona.";
+        aviso.style.display = "block";
+    } else {
+        aviso.style.display = "none";
+    }
+
     const porPersona = total / personas;
     document.getElementById("divisionResultado").textContent =
         "Cada persona paga: L. " + porPersona.toFixed(2) + " (total L. " + total.toFixed(2) + " entre " + personas + ")";

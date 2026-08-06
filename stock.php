@@ -151,68 +151,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <p class="titulo-modulo">Inventario General</p>
 
-<form method="GET" class="pd-row" style="margin-bottom:15px;">
-    <div class="pd-field" style="flex:1; min-width:220px;">
-        <label>Buscar</label>
-        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
-    </div>
-    <div class="pd-field">
-        <label>Proveedor</label>
-        <select name="proveedor">
-            <option value="">-- todos --</option>
-            <?php foreach ($proveedores as $pr): ?>
-            <option value="<?php echo htmlspecialchars($pr["ID_prov"]); ?>" <?php echo $filtroProveedor === $pr["ID_prov"] ? "selected" : ""; ?>>
-                <?php echo htmlspecialchars($pr["ID_prov"] . " - " . $pr["nom_prov"]); ?>
-            </option>
-            <?php endforeach; ?>
-        </select>
-    </div>
-    <button type="submit">BUSCAR</button>
-    <?php if ($buscar || $filtroProveedor): ?><a class="btn" href="stock.php">Limpiar</a><?php endif; ?>
-</form>
-
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
-
-<div class="pd-card">
-<table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Proveedor</th><th>Estado</th><th></th></tr>
-<?php if (count($productos) === 0): ?>
-<tr><td colspan="8">No se encontraron productos.</td></tr>
-<?php endif; ?>
-<?php foreach ($productos as $p): ?>
-<tr class="<?php echo ($p["cantidad_pro"] <= 5 && $p["activo"]) ? "fila-bajo" : ""; ?>"<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
-    <td><?php echo htmlspecialchars($p["ID_Producto"]); ?></td>
-    <td><?php echo htmlspecialchars($p["nombre_pro"]); ?></td>
-    <td><?php echo number_format((float) $p["cantidad_pro"], 2); ?><?php if ($p["cantidad_pro"] <= 5 && $p["activo"]): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
-    <td><?php echo number_format((float) $p["precio_pro"], 2); ?></td>
-    <td><?php echo htmlspecialchars($p["categoria_pro"]); ?></td>
-    <td><?php echo $p["nom_prov"] ? htmlspecialchars($p["nom_prov"]) : '<span style="color:#999;">—</span>'; ?></td>
-    <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
-    <td>
-        <?php if ($esAdmin): ?>
-        <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
-        <?php if ($p["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este producto?');">
-            <input type="hidden" name="accion" value="eliminar">
-            <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
-            <button type="submit">DESACTIVAR</button>
-        </form>
-        <?php else: ?>
-        <form method="POST" style="display:inline">
-            <input type="hidden" name="accion" value="reactivar">
-            <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
-            <button type="submit">REACTIVAR</button>
-        </form>
-        <?php endif; ?>
-        <?php else: ?>
-            <span style="color:#999;">—</span>
-        <?php endif; ?>
-    </td>
-</tr>
-<?php endforeach; ?>
-</table>
-</div>
 
 <?php if ($esAdmin): ?>
 <div class="pd-card">
@@ -282,6 +222,66 @@ require_once __DIR__ . "/includes/layout_top.php";
 <p style="margin:0; color:#777;">Vista de solo lectura. Solo un administrador puede crear, editar o desactivar productos.</p>
 </div>
 <?php endif; ?>
+
+<div class="pd-card">
+<form method="GET" class="pd-row" style="margin-bottom:15px;">
+    <div class="pd-field" style="flex:1; min-width:220px;">
+        <label>Buscar</label>
+        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
+    </div>
+    <div class="pd-field">
+        <label>Proveedor</label>
+        <select name="proveedor">
+            <option value="">-- todos --</option>
+            <?php foreach ($proveedores as $pr): ?>
+            <option value="<?php echo htmlspecialchars($pr["ID_prov"]); ?>" <?php echo $filtroProveedor === $pr["ID_prov"] ? "selected" : ""; ?>>
+                <?php echo htmlspecialchars($pr["ID_prov"] . " - " . $pr["nom_prov"]); ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
+    </div>
+    <button type="submit">BUSCAR</button>
+    <?php if ($buscar || $filtroProveedor): ?><a class="btn" href="stock.php">Limpiar</a><?php endif; ?>
+</form>
+
+<table class="pd-tabla">
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Proveedor</th><th>Estado</th><th></th></tr>
+<?php if (count($productos) === 0): ?>
+<tr><td colspan="8">No se encontraron productos.</td></tr>
+<?php endif; ?>
+<?php foreach ($productos as $p): ?>
+<tr class="<?php echo ($p["cantidad_pro"] <= 5 && $p["activo"]) ? "fila-bajo" : ""; ?>"<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
+    <td><?php echo htmlspecialchars($p["ID_Producto"]); ?></td>
+    <td><?php echo htmlspecialchars($p["nombre_pro"]); ?></td>
+    <td><?php echo number_format((float) $p["cantidad_pro"], 2); ?><?php if ($p["cantidad_pro"] <= 5 && $p["activo"]): ?><span class="badge-bajo">bajo</span><?php endif; ?></td>
+    <td><?php echo number_format((float) $p["precio_pro"], 2); ?></td>
+    <td><?php echo htmlspecialchars($p["categoria_pro"]); ?></td>
+    <td><?php echo $p["nom_prov"] ? htmlspecialchars($p["nom_prov"]) : '<span style="color:#999;">—</span>'; ?></td>
+    <td><?php echo $p["activo"] ? "Activo" : "Inactivo"; ?></td>
+    <td>
+        <?php if ($esAdmin): ?>
+        <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
+        <?php if ($p["activo"]): ?>
+        <form method="POST" style="display:inline" onsubmit="return confirm('Desactivar este producto?');">
+            <input type="hidden" name="accion" value="eliminar">
+            <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
+            <button type="submit">DESACTIVAR</button>
+        </form>
+        <?php else: ?>
+        <form method="POST" style="display:inline">
+            <input type="hidden" name="accion" value="reactivar">
+            <input type="hidden" name="id_producto" value="<?php echo htmlspecialchars($p["ID_Producto"]); ?>">
+            <button type="submit">REACTIVAR</button>
+        </form>
+        <?php endif; ?>
+        <?php else: ?>
+            <span style="color:#999;">—</span>
+        <?php endif; ?>
+    </td>
+</tr>
+<?php endforeach; ?>
+</table>
+</div>
 
 <div class="pd-card">
 <h3 style="margin-top:0;">Productos con poco stock (posibles compras a realizar)</h3>
