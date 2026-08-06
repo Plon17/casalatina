@@ -1,6 +1,13 @@
 <?php
 // includes/auth.php
 session_start();
+
+// auth.php se incluye ANTES que db.php en cada página, así que si queremos auditar
+// aquí mismo necesitamos traer la conexión y el helper nosotros. require_once evita
+// que se vuelva a incluir cuando la página los pida de nuevo más abajo.
+require_once __DIR__ . "/db.php";
+require_once __DIR__ . "/auditoria.php";
+
 // Si no hay sesion, manda al login
 if (!isset($_SESSION["rol"])) {
     header('Location: login.php');
@@ -17,6 +24,7 @@ if (isset($modulo_actual)) {
     $es_admin = ($_SESSION["rol"] === "administrador");
     $permitido = $es_admin || in_array($modulo_actual, $modulos_empleado);
     if (!$permitido) {
+        registrarAuditoria($pdo, $modulo_actual, "Acceso denegado", "Intentó entrar al módulo sin permisos (rol: " . $_SESSION["rol"] . ")");
         header('Location: index.php');
         exit;
     }

@@ -12,6 +12,13 @@ if (!$idPedido) {
     exit;
 }
 
+// Siguiente ID_detped como MAX+1 en vez de COUNT+1: pedido_detalle se borra y
+// reinserta constantemente aquí (enviar a cocina, ronda extra, volver al Paso 1),
+// así que contar filas puede repetir un ID que ya se usó antes.
+function siguienteIdDetalle(PDO $pdo): int {
+    return (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_detped,2) AS INTEGER)),0) AS m FROM pedido_detalle")->fetch()["m"] + 1;
+}
+
 // Revisa stock suficiente para una lista de items (según receta de menu_ingredientes)
 // y lo descuenta. Lanza una excepción si algo no alcanza (no descuenta nada en ese caso).
 function descontarStockPorReceta(PDO $pdo, array $items): void {
@@ -74,7 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "envia
         try {
             $pdo->prepare("DELETE FROM pedido_detalle WHERE ID_Pedido = ?")->execute([$idPedido]);
 
-            $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
+            $d = siguienteIdDetalle($pdo);
             $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio, lote)
                                        VALUES (?,?,?,?,?,1)");
             foreach ($items as $it) {
@@ -116,7 +123,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "agreg
             $stmtLote->execute([$idPedido]);
             $nuevoLote = (int) $stmtLote->fetch()["m"] + 1;
 
-            $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
+            $d = siguienteIdDetalle($pdo);
             $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio, lote)
                                        VALUES (?,?,?,?,?,?)");
             foreach ($items as $it) {
@@ -144,6 +151,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cance
     registrarAuditoria($pdo, "pedido", "Pedido cancelado", $idPedido);
     header("Location: pedidos_listado.php");
     exit;
+}
+
+// Volver al Paso 1: primero hay que guardar lo que quedó en pantalla (pudiste haber
+// quitado productos aquí). Si no, al volver el Paso 1 los vuelve a cargar tal como
+// estaban en la base de datos, como si nunca los hubieras quitado.
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "volver_paso1") {
+    $items = json_decode($_POST["detalle_json"] ?? "", true) ?: [];
+    $cantidadInvalida = false;
+    foreach ($items as $it) {
+        if ((float) ($it["cantidad"] ?? 0) > 500) { $cantidadInvalida = true; }
+    }
+
+    if ($cantidadInvalida) {
+        $error = "Uno de los productos tiene una cantidad demasiado alta (máximo 500 por producto).";
+    } else {
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare("DELETE FROM pedido_detalle WHERE ID_Pedido = ?")->execute([$idPedido]);
+
+            if ($items) {
+                $d = siguienteIdDetalle($pdo);
+                $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio)
+                                           VALUES (?,?,?,?,?)");
+                foreach ($items as $it) {
+                    $idDet = "D" . str_pad($d, 6, "0", STR_PAD_LEFT);
+                    $stmtDet->execute([$idDet, $idPedido, $it["id_menu"], $it["cantidad"], $it["precio"]]);
+                    $d++;
+                }
+            }
+
+            $pdo->commit();
+            header("Location: pedido_paso1.php?id=" . urlencode($idPedido));
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = "Error al guardar los cambios: " . $e->getMessage();
+        }
+    }
 }
 
 $pedidoStmt = $pdo->prepare("SELECT * FROM pedido WHERE ID_Pedido = ?");
@@ -234,6 +279,13 @@ require_once __DIR__ . "/includes/layout_top.php";
         <input type="hidden" name="detalle_json" id="f_detalle_json">
     </form>
 
+    <!-- Guarda el estado actual de la tabla (por si quitaste algo) antes de volver al Paso 1 -->
+    <form method="POST" id="formVolver" style="display:none;">
+        <input type="hidden" name="accion" value="volver_paso1">
+        <input type="hidden" name="id_pedido" value="<?php echo htmlspecialchars($idPedido); ?>">
+        <input type="hidden" name="detalle_json" id="f_detalle_json_volver">
+    </form>
+
     <script>
     let itemsPedido = <?php echo json_encode(array_map(function ($d) {
         return ["id_menu" => $d["ID_Menu"], "nombre" => $d["nombre"], "precio" => (float) $d["precio"], "cantidad" => (int) $d["cantidad"]];
@@ -259,7 +311,11 @@ require_once __DIR__ . "/includes/layout_top.php";
         document.getElementById("total").value = (subtotal + impuesto).toFixed(2);
     }
 
-    function volverPaso1() { window.location.href = "pedido_paso1.php?id=<?php echo urlencode($idPedido); ?>"; }
+    // Antes de irse al Paso 1, guarda lo que quedó en pantalla (respeta lo que quitaste aquí).
+    function volverPaso1() {
+        document.getElementById("f_detalle_json_volver").value = JSON.stringify(itemsPedido);
+        document.getElementById("formVolver").submit();
+    }
 
     function enviarCocina() {
         if (itemsPedido.length === 0) { alert("El pedido no puede quedar vacío."); return; }

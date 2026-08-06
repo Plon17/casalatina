@@ -8,6 +8,21 @@ $mensaje = "";
 $error = "";
 $esAdmin = ($_SESSION["rol"] ?? "") === "administrador";
 
+const CANTIDAD_MAX = 500;
+const PRECIO_MAX = 100000;
+
+// Valida cantidad y precio dentro de rangos razonables para este negocio.
+// Devuelve un mensaje de error, o "" si todo está bien.
+function validarCantidadPrecio($cantidad, $precio): string {
+    if (!is_numeric($cantidad) || (float) $cantidad < 0 || (float) $cantidad > CANTIDAD_MAX) {
+        return "La cantidad debe ser un número entre 0 y " . CANTIDAD_MAX . ".";
+    }
+    if (!is_numeric($precio) || (float) $precio < 0 || (float) $precio > PRECIO_MAX) {
+        return "El precio debe ser un número entre 0 y " . number_format(PRECIO_MAX, 0) . ".";
+    }
+    return "";
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
     if (!$esAdmin && in_array($_POST["accion"], ["guardar", "editar", "eliminar", "reactivar"], true)) {
@@ -16,81 +31,80 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     } else {
 
     if ($_POST["accion"] === "guardar") {
-        $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
-            ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
-        try {
-            $stmt = $pdo->prepare("INSERT INTO producto (ID_Producto, nombre_pro, cantidad_pro, precio_pro, categoria_pro, ID_prov)
-                                    VALUES (?,?,?,?,?,?)");
-            $stmt->execute([
-                $_POST["id_producto"], $_POST["nombre"], $_POST["cantidad"],
-                $_POST["precio"], $categoriaFinal, $_POST["id_proveedor"] ?: null
-            ]);
-            $mensaje = "Producto agregado.";
-            registrarAuditoria($pdo, "stock", "Producto agregado", $_POST["id_producto"] . " - " . $_POST["nombre"] . " (cantidad inicial: " . $_POST["cantidad"] . ")");
-        } catch (Exception $e) {
-            $error = "Error al agregar el producto (¿el ID ya existe?): " . $e->getMessage();
+        $validacion = validarCantidadPrecio($_POST["cantidad"] ?? null, $_POST["precio"] ?? null);
+        if ($validacion !== "") {
+            $error = $validacion;
+        } else {
+            $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
+                ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
+            try {
+                $stmt = $pdo->prepare("INSERT INTO producto (ID_Producto, nombre_pro, cantidad_pro, precio_pro, categoria_pro, ID_prov)
+                                        VALUES (?,?,?,?,?,?)");
+                $stmt->execute([
+                    $_POST["id_producto"], $_POST["nombre"], $_POST["cantidad"],
+                    $_POST["precio"], $categoriaFinal, $_POST["id_proveedor"] ?: null
+                ]);
+                $mensaje = "Producto agregado.";
+                registrarAuditoria($pdo, "stock", "Producto agregado", $_POST["id_producto"] . " - " . $_POST["nombre"] . " (cantidad inicial: " . $_POST["cantidad"] . ")");
+            } catch (Exception $e) {
+                $error = "Error al agregar el producto (¿el ID ya existe?): " . $e->getMessage();
+            }
         }
     }
 
     if ($_POST["accion"] === "editar") {
-        $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
-            ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
-        // Traemos cantidad y precio anteriores para poder marcar en la auditoría si
-        // alguien los cambió a mano (fuera del flujo normal de Compras)
-        $stmtAnterior = $pdo->prepare("SELECT cantidad_pro, precio_pro FROM producto WHERE ID_Producto = ?");
-        $stmtAnterior->execute([$_POST["id_producto"]]);
-        $anterior = $stmtAnterior->fetch();
-        $cantidadAnterior = $anterior["cantidad_pro"] ?? null;
-        $precioAnterior = $anterior["precio_pro"] ?? null;
+        $validacion = validarCantidadPrecio($_POST["cantidad"] ?? null, $_POST["precio"] ?? null);
+        if ($validacion !== "") {
+            $error = $validacion;
+        } else {
+            $categoriaFinal = ($_POST["categoria"] === "Otros" && trim($_POST["categoria_otro"] ?? "") !== "")
+                ? trim($_POST["categoria_otro"]) : $_POST["categoria"];
+            // Traemos cantidad y precio anteriores para poder marcar en la auditoría si
+            // alguien los cambió a mano (fuera del flujo normal de Compras)
+            $stmtAnterior = $pdo->prepare("SELECT cantidad_pro, precio_pro FROM producto WHERE ID_Producto = ?");
+            $stmtAnterior->execute([$_POST["id_producto"]]);
+            $anterior = $stmtAnterior->fetch();
+            $cantidadAnterior = $anterior["cantidad_pro"] ?? null;
+            $precioAnterior = $anterior["precio_pro"] ?? null;
 
-        $stmt = $pdo->prepare("UPDATE producto SET nombre_pro=?, cantidad_pro=?, precio_pro=?, categoria_pro=?, ID_prov=?
-                                WHERE ID_Producto=?");
-        $stmt->execute([
-            $_POST["nombre"], $_POST["cantidad"], $_POST["precio"],
-            $categoriaFinal, $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
-        ]);
-        $mensaje = "Producto actualizado.";
+            $stmt = $pdo->prepare("UPDATE producto SET nombre_pro=?, cantidad_pro=?, precio_pro=?, categoria_pro=?, ID_prov=?
+                                    WHERE ID_Producto=?");
+            $stmt->execute([
+                $_POST["nombre"], $_POST["cantidad"], $_POST["precio"],
+                $categoriaFinal, $_POST["id_proveedor"] ?: null, $_POST["id_producto"]
+            ]);
+            $mensaje = "Producto actualizado.";
 
-        $detalleAudit = $_POST["id_producto"] . " - " . $_POST["nombre"];
-        if ($cantidadAnterior !== null && (float) $cantidadAnterior !== (float) $_POST["cantidad"]) {
-            $detalleAudit .= " — cantidad cambiada manualmente de $cantidadAnterior a " . $_POST["cantidad"];
+            $detalleAudit = $_POST["id_producto"] . " - " . $_POST["nombre"];
+            if ($cantidadAnterior !== null && (float) $cantidadAnterior !== (float) $_POST["cantidad"]) {
+                $detalleAudit .= " — cantidad cambiada manualmente de $cantidadAnterior a " . $_POST["cantidad"];
+            }
+            if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
+                $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
+            }
+            registrarAuditoria($pdo, "stock", "Producto editado", $detalleAudit);
         }
-        if ($precioAnterior !== null && (float) $precioAnterior !== (float) $_POST["precio"]) {
-            $detalleAudit .= " — precio cambiado de L. $precioAnterior a L. " . $_POST["precio"];
-        }
-        registrarAuditoria($pdo, "stock", "Producto editado", $detalleAudit);
     }
 
     if ($_POST["accion"] === "eliminar") {
-        // compras y menu_ingredientes referencian producto (con razón: no queremos
-        // perder el historial de compras ni romper recetas ya guardadas).
-        // Si el insumo ya se usó en algo, lo desactivamos en vez de borrarlo.
-        try {
-            $stmt = $pdo->prepare("DELETE FROM producto WHERE ID_Producto=?");
-            $stmt->execute([$_POST["id_producto"]]);
-            $mensaje = "Producto eliminado.";
-            registrarAuditoria($pdo, "stock", "Producto eliminado", $_POST["id_producto"]);
-        } catch (PDOException $e) {
-            if ($e->getCode() === "23000") {
-                $pdo->prepare("UPDATE producto SET activo = 0 WHERE ID_Producto=?")->execute([$_POST["id_producto"]]);
+        // Ya no se elimina ningún producto, solo se desactiva: se conserva el historial
+        // de compras y las recetas que ya lo usan, y deja de ofrecerse para comprar o
+        // para armar recetas nuevas.
+        $pdo->prepare("UPDATE producto SET activo = 0 WHERE ID_Producto=?")->execute([$_POST["id_producto"]]);
 
-                // Avisamos si algún plato ACTIVO todavía tiene este insumo en su receta,
-                // para que decidas si hace falta actualizar esa receta.
-                $stmtRecetas = $pdo->prepare("SELECT m.nombre FROM menu_ingredientes mi
-                                               JOIN menu m ON m.ID_Menu = mi.ID_Menu
-                                               WHERE mi.ID_Producto = ? AND m.activo = 1");
-                $stmtRecetas->execute([$_POST["id_producto"]]);
-                $platos = array_column($stmtRecetas->fetchAll(PDO::FETCH_ASSOC), "nombre");
+        // Avisamos si algún plato ACTIVO todavía tiene este insumo en su receta,
+        // para que decidas si hace falta actualizar esa receta.
+        $stmtRecetas = $pdo->prepare("SELECT m.nombre FROM menu_ingredientes mi
+                                       JOIN menu m ON m.ID_Menu = mi.ID_Menu
+                                       WHERE mi.ID_Producto = ? AND m.activo = 1");
+        $stmtRecetas->execute([$_POST["id_producto"]]);
+        $platos = array_column($stmtRecetas->fetchAll(PDO::FETCH_ASSOC), "nombre");
 
-                $mensaje = "Se marcó como inactivo: ya no aparece para comprar más ni para armar recetas nuevas.";
-                if ($platos) {
-                    $mensaje .= " Todavía lo usan estos platos activos: " . implode(", ", $platos) . ".";
-                }
-                registrarAuditoria($pdo, "stock", "Producto desactivado", $_POST["id_producto"]);
-            } else {
-                $error = "Error al eliminar: " . $e->getMessage();
-            }
+        $mensaje = "Producto desactivado: ya no aparece para comprar más ni para armar recetas nuevas.";
+        if ($platos) {
+            $mensaje .= " Todavía lo usan estos platos activos: " . implode(", ", $platos) . ".";
         }
+        registrarAuditoria($pdo, "stock", "Producto desactivado", $_POST["id_producto"]);
     }
 
     if ($_POST["accion"] === "reactivar") {
@@ -101,15 +115,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     }
 }
 
-$buscar = trim($_GET["buscar"] ?? "");
+// ---------- Filtros (cada campo se combina con AND, no se mezclan entre sí) ----------
+$buscarId = trim($_GET["buscar_id"] ?? "");
+$buscarNombre = trim($_GET["buscar_nombre"] ?? "");
+$buscarCategoria = trim($_GET["buscar_categoria"] ?? "");
 $filtroProveedor = trim($_GET["proveedor"] ?? "");
+$verInactivos = ($_GET["ver"] ?? "") === "inactivos";
 
-$condiciones = [];
-$params = [];
-if ($buscar !== "") {
-    $condiciones[] = "(prod.nombre_pro LIKE ? OR prod.ID_Producto LIKE ?)";
-    $params[] = "%$buscar%";
-    $params[] = "%$buscar%";
+$condiciones = ["prod.activo = ?"];
+$params = [$verInactivos ? 0 : 1];
+if ($buscarId !== "") {
+    $condiciones[] = "prod.ID_Producto LIKE ?";
+    $params[] = "%$buscarId%";
+}
+if ($buscarNombre !== "") {
+    $condiciones[] = "prod.nombre_pro LIKE ?";
+    $params[] = "%$buscarNombre%";
+}
+if ($buscarCategoria !== "") {
+    $condiciones[] = "prod.categoria_pro = ?";
+    $params[] = $buscarCategoria;
 }
 if ($filtroProveedor !== "") {
     $condiciones[] = "prod.ID_prov = ?";
@@ -120,6 +145,18 @@ $sql = "SELECT prod.*, pv.nom_prov FROM producto prod LEFT JOIN proveedores pv O
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$hayFiltros = $buscarId !== "" || $buscarNombre !== "" || $buscarCategoria !== "" || $filtroProveedor !== "";
+
+// Arma la query string de los filtros actuales (sin "ver"), para que el toggle de
+// activos/desactivados no pierda el resto de los filtros al cambiar de vista.
+$queryFiltrosActuales = http_build_query(array_filter([
+    "buscar_id" => $buscarId, "buscar_nombre" => $buscarNombre, "buscar_categoria" => $buscarCategoria,
+    "proveedor" => $filtroProveedor,
+], fn($v) => $v !== ""));
+
+// Categorías existentes en la tabla, para el select del filtro
+$categoriasExistentes = $pdo->query("SELECT DISTINCT categoria_pro FROM producto WHERE categoria_pro IS NOT NULL AND categoria_pro != '' ORDER BY categoria_pro")->fetchAll(PDO::FETCH_COLUMN);
 
 // Productos con cantidad baja (para el listado de "compras a realizar")
 // Los inactivos no entran aquí: ya no se van a comprar más.
@@ -147,9 +184,12 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 .fila-bajo{background:var(--color-danger-bg);}
 .badge-bajo{background:var(--color-danger);color:#fff;padding:1px 6px;border-radius:4px;font-size:12px;margin-left:6px;}
+.toggle-inactivos{background:none;border:1px solid #ccc;padding:6px 12px;border-radius:4px;cursor:pointer;text-decoration:none;color:#333;font-size:13px;}
+.toggle-inactivos.activo{background:var(--color-surface-alt);font-weight:bold;}
 </style>
 
 <p class="titulo-modulo">Inventario General</p>
+<?php if ($esAdmin): ?><p><a class="btn" href="compras.php">+ Registrar Compra</a></p><?php endif; ?>
 
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
@@ -170,12 +210,12 @@ require_once __DIR__ . "/includes/layout_top.php";
             <input type="text" name="nombre" id="nombre" required>
         </div>
         <div class="pd-field chico">
-            <label>Cantidad</label>
-            <input type="number" step="0.01" name="cantidad" id="cantidad" required>
+            <label>Cantidad (máx. <?php echo CANTIDAD_MAX; ?>)</label>
+            <input type="number" step="0.01" name="cantidad" id="cantidad" min="0" max="<?php echo CANTIDAD_MAX; ?>" required>
         </div>
         <div class="pd-field chico">
-            <label>Precio</label>
-            <input type="number" step="0.01" name="precio" id="precio" required>
+            <label>Precio (máx. <?php echo number_format(PRECIO_MAX, 0); ?>)</label>
+            <input type="number" step="0.01" name="precio" id="precio" min="0" max="<?php echo PRECIO_MAX; ?>" required>
         </div>
         <div class="pd-field">
             <label>Categoría</label>
@@ -225,9 +265,24 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <div class="pd-card">
 <form method="GET" class="pd-row" style="margin-bottom:15px;">
-    <div class="pd-field" style="flex:1; min-width:220px;">
-        <label>Buscar</label>
-        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
+    <div class="pd-field">
+        <label>ID</label>
+        <input type="text" name="buscar_id" placeholder="ID exacto o parcial" value="<?php echo htmlspecialchars($buscarId); ?>">
+    </div>
+    <div class="pd-field">
+        <label>Nombre</label>
+        <input type="text" name="buscar_nombre" placeholder="Nombre exacto o parcial" value="<?php echo htmlspecialchars($buscarNombre); ?>">
+    </div>
+    <div class="pd-field">
+        <label>Categoría</label>
+        <select name="buscar_categoria">
+            <option value="">-- todas --</option>
+            <?php foreach ($categoriasExistentes as $cat): ?>
+            <option value="<?php echo htmlspecialchars($cat); ?>" <?php echo $buscarCategoria === $cat ? "selected" : ""; ?>>
+                <?php echo htmlspecialchars($cat); ?>
+            </option>
+            <?php endforeach; ?>
+        </select>
     </div>
     <div class="pd-field">
         <label>Proveedor</label>
@@ -240,14 +295,20 @@ require_once __DIR__ . "/includes/layout_top.php";
             <?php endforeach; ?>
         </select>
     </div>
+    <input type="hidden" name="ver" value="<?php echo $verInactivos ? "inactivos" : ""; ?>">
     <button type="submit">BUSCAR</button>
-    <?php if ($buscar || $filtroProveedor): ?><a class="btn" href="stock.php">Limpiar</a><?php endif; ?>
+    <?php if ($hayFiltros): ?><a class="btn" href="stock.php<?php echo $verInactivos ? '?ver=inactivos' : ''; ?>">Limpiar</a><?php endif; ?>
 </form>
+
+<div class="pd-row" style="margin-top:2px; margin-bottom:18px; gap:10px;">
+    <a class="toggle-inactivos <?php echo !$verInactivos ? 'activo' : ''; ?>" href="stock.php<?php echo $queryFiltrosActuales ? '?' . $queryFiltrosActuales : ''; ?>">Activos</a>
+    <a class="toggle-inactivos <?php echo $verInactivos ? 'activo' : ''; ?>" href="stock.php?ver=inactivos<?php echo $queryFiltrosActuales ? '&' . $queryFiltrosActuales : ''; ?>">Ver desactivados</a>
+</div>
 
 <table class="pd-tabla">
 <tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Precio</th><th>Categoría</th><th>Proveedor</th><th>Estado</th><th></th></tr>
 <?php if (count($productos) === 0): ?>
-<tr><td colspan="8">No se encontraron productos.</td></tr>
+<tr><td colspan="8"><?php echo $verInactivos ? "No hay productos desactivados." : "No se encontraron productos."; ?></td></tr>
 <?php endif; ?>
 <?php foreach ($productos as $p): ?>
 <tr class="<?php echo ($p["cantidad_pro"] <= 5 && $p["activo"]) ? "fila-bajo" : ""; ?>"<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
@@ -286,9 +347,9 @@ require_once __DIR__ . "/includes/layout_top.php";
 <div class="pd-card">
 <h3 style="margin-top:0;">Productos con poco stock (posibles compras a realizar)</h3>
 <table class="pd-tabla">
-<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Proveedor a contactar</th></tr>
+<tr><th>ID_Producto</th><th>Nombre</th><th>Cantidad</th><th>Proveedor a contactar</th><th></th></tr>
 <?php if (count($bajos) === 0): ?>
-<tr><td colspan="4">Todo el inventario está en buen nivel.</td></tr>
+<tr><td colspan="5">Todo el inventario está en buen nivel.</td></tr>
 <?php endif; ?>
 <?php foreach ($bajos as $b): ?>
 <tr class="fila-bajo">
@@ -302,6 +363,7 @@ require_once __DIR__ . "/includes/layout_top.php";
             <span style="color:#999;">sin proveedor asignado</span>
         <?php endif; ?>
     </td>
+    <td><a class="btn" href="compras.php?id_producto=<?php echo urlencode($b['ID_Producto']); ?>">Comprar</a></td>
 </tr>
 <?php endforeach; ?>
 </table>

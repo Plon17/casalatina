@@ -7,20 +7,67 @@ require_once __DIR__ . "/includes/auditoria.php";
 $mensaje = "";
 $error = "";
 
+// Mensaje de éxito que quedó guardado en sesión tras el redirect tras registrar una compra
+if (!empty($_SESSION["flash_mensaje"])) {
+    $mensaje = $_SESSION["flash_mensaje"];
+    unset($_SESSION["flash_mensaje"]);
+}
+
+const CANTIDAD_MAX = 500;
+const PRECIO_MAX = 100000;
+
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "registrar") {
 
-    $idProducto = $_POST["id_producto"] ?? "";
+    $productoNuevo = ($_POST["producto_nuevo"] ?? "0") === "1";
     $cantidad = (float) ($_POST["cantidad"] ?? 0);
     $monto = $_POST["monto"] ?? "";
     $idProv = $_POST["id_prov"] ?: null;
+    $idProducto = "";
+    $nombreNuevo = "";
+    $precioNuevo = null;
+    $categoriaNueva = "";
 
-    if (!$idProducto || $cantidad <= 0) {
-        $error = "Selecciona un producto (usando el buscador) y una cantidad válida.";
-    } elseif ($cantidad > 500) {
-        $error = "La cantidad (" . $cantidad . ") supera el máximo permitido por compra (500 unidades). Si necesitas más, regístrala en varias compras.";
+    if ($cantidad <= 0) {
+        $error = "Pon una cantidad válida.";
+    } elseif ($cantidad > CANTIDAD_MAX) {
+        $error = "La cantidad (" . $cantidad . ") supera el máximo permitido por compra (" . CANTIDAD_MAX . " unidades). Si necesitas más, regístrala en varias compras.";
+    } elseif ($productoNuevo) {
+        // ---------- Producto nuevo: se crea en Stock aquí mismo antes de registrar la compra ----------
+        $idProducto = trim($_POST["nuevo_id_producto"] ?? "");
+        $nombreNuevo = trim($_POST["nuevo_nombre"] ?? "");
+        $precioNuevo = $_POST["nuevo_precio"] ?? "";
+        $categoriaNueva = ($_POST["nuevo_categoria"] === "Otros" && trim($_POST["nuevo_categoria_otro"] ?? "") !== "")
+            ? trim($_POST["nuevo_categoria_otro"]) : ($_POST["nuevo_categoria"] ?? "");
+
+        if ($idProducto === "" || $nombreNuevo === "") {
+            $error = "Completa el ID y el nombre del producto nuevo.";
+        } elseif (!is_numeric($precioNuevo) || (float) $precioNuevo < 0 || (float) $precioNuevo > PRECIO_MAX) {
+            $error = "El precio del producto nuevo debe ser un número entre 0 y " . number_format(PRECIO_MAX, 0) . ".";
+        } else {
+            $stmtExiste = $pdo->prepare("SELECT 1 FROM producto WHERE ID_Producto = ?");
+            $stmtExiste->execute([$idProducto]);
+            if ($stmtExiste->fetch()) {
+                $error = "Ya existe un producto con el ID \"" . htmlspecialchars($idProducto) . "\". Usa uno distinto, o búscalo en \"Producto existente\" si ya está en Stock.";
+            }
+        }
     } else {
+        // ---------- Producto que ya existe en Stock (flujo de siempre) ----------
+        $idProducto = $_POST["id_producto"] ?? "";
+        if (!$idProducto) {
+            $error = "Selecciona un producto (usando el buscador) o registra uno nuevo.";
+        }
+    }
+
+    if ($error === "") {
         $pdo->beginTransaction();
         try {
+            if ($productoNuevo) {
+                $stmtProd = $pdo->prepare("INSERT INTO producto (ID_Producto, nombre_pro, cantidad_pro, precio_pro, categoria_pro, ID_prov)
+                                            VALUES (?,?,0,?,?,?)");
+                $stmtProd->execute([$idProducto, $nombreNuevo, $precioNuevo, $categoriaNueva, $idProv]);
+                registrarAuditoria($pdo, "stock", "Producto agregado (desde Compras)", "$idProducto - $nombreNuevo");
+            }
+
             $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM compras")->fetch()["c"] + 1;
             $idCompra = "C" . str_pad($n, 6, "0", STR_PAD_LEFT);
 
@@ -33,14 +80,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "regis
             $stmt2->execute([$cantidad, $idProducto]);
 
             $pdo->commit();
-            $mensaje = "Compra #$idCompra registrada. Stock actualizado (+$cantidad unidades).";
+            $_SESSION["flash_mensaje"] = "Compra #$idCompra registrada."
+                . ($productoNuevo ? " Producto \"$nombreNuevo\" ($idProducto) creado en Stock." : "")
+                . " Stock actualizado (+$cantidad unidades).";
             registrarAuditoria($pdo, "compras", "Compra registrada", "$idCompra — $idProducto x$cantidad (L. $monto)" . ($idProv ? " — proveedor: $idProv" : ""));
+
+            // Redirigimos a la URL limpia (sin ?id_producto=...): si no, al recargar la
+            // misma página el producto se preselecciona otra vez y es fácil registrar
+            // la compra dos veces sin querer.
+            header("Location: compras.php");
+            exit;
         } catch (Exception $e) {
             $pdo->rollBack();
             $error = "Error al registrar la compra: " . $e->getMessage();
         }
     }
 }
+
+// Si viene ?id_producto=... (por ejemplo desde el aviso de stock bajo), lo dejamos
+// listo para que el JS lo preseleccione al cargar la página.
+$idProductoPrefill = trim($_GET["id_producto"] ?? "");
 
 $productos = $pdo->query("SELECT ID_Producto, nombre_pro, precio_pro, cantidad_pro, ID_prov FROM producto WHERE activo = 1")->fetchAll(PDO::FETCH_ASSOC);
 $proveedores = $pdo->query("SELECT ID_prov, nom_prov FROM proveedores WHERE activo = 1 ORDER BY nom_prov")->fetchAll(PDO::FETCH_ASSOC);
@@ -67,6 +126,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-tabla th{background:var(--color-surface-alt);}
 .pd-resultados{max-height:150px;overflow-y:auto;border:1px solid #ddd;border-radius:4px;}
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
+.bloque-nuevo{background:var(--color-primary-light);border:1px dashed var(--color-primary);border-radius:8px;padding:14px 16px;margin-top:10px;}
+.link-toggle{background:none;border:none;color:var(--color-primary-dark);text-decoration:underline;cursor:pointer;font-size:13px;font-weight:bold;padding:0;}
 </style>
 
 <p class="titulo-modulo">Compras</p>
@@ -79,29 +140,83 @@ require_once __DIR__ . "/includes/layout_top.php";
 <form method="POST" id="formCompra">
     <input type="hidden" name="accion" value="registrar">
     <input type="hidden" name="id_producto" id="id_producto">
+    <input type="hidden" name="producto_nuevo" id="producto_nuevo" value="0">
 
-    <div class="pd-row">
-        <div class="pd-field" style="flex:1; min-width:220px;">
-            <label>Buscar producto</label>
-            <input type="text" id="buscar_producto" placeholder="Nombre o ID" autocomplete="off">
+    <!-- ---------- Producto existente (flujo de siempre) ---------- -->
+    <div id="bloqueExistente">
+        <div class="pd-row">
+            <div class="pd-field" style="flex:1; min-width:220px;">
+                <label>Buscar producto</label>
+                <input type="text" id="buscar_producto" placeholder="Nombre o ID" autocomplete="off">
+            </div>
+            <div class="pd-field">
+                <label>Fecha</label>
+                <input type="date" value="<?php echo date('Y-m-d'); ?>" readonly>
+            </div>
         </div>
-        <div class="pd-field">
-            <label>Fecha</label>
-            <input type="date" value="<?php echo date('Y-m-d'); ?>" readonly>
+
+        <div class="pd-resultados" style="margin-top:10px;">
+            <table class="pd-tabla" id="tablaResultados">
+            <tr><th>ID</th><th>Nombre</th><th>Precio ref.</th><th>Stock actual</th></tr>
+            </table>
         </div>
+
+        <div class="pd-row" style="margin-top:10px;">
+            <div class="pd-field" style="flex:1;"><label>Producto seleccionado</label><input type="text" id="nombre_producto" readonly></div>
+        </div>
+
+        <p style="margin:10px 0 0 0;">
+            ¿No está en la lista?
+            <button type="button" class="link-toggle" onclick="activarModoNuevo()">+ Nuevo producto</button>
+        </p>
     </div>
 
-    <div class="pd-resultados" style="margin-top:10px;">
-        <table class="pd-tabla" id="tablaResultados">
-        <tr><th>ID</th><th>Nombre</th><th>Precio ref.</th><th>Stock actual</th></tr>
-        </table>
+    <!-- ---------- Producto nuevo (se crea en Stock al registrar la compra) ---------- -->
+    <div id="bloqueNuevo" class="bloque-nuevo" style="display:none;">
+        <p style="margin:0 0 10px 0; font-weight:bold; color:var(--color-primary-dark);">Producto nuevo (se agregará a Stock)</p>
+        <div class="pd-row">
+            <div class="pd-field">
+                <label>ID Producto</label>
+                <input type="text" id="nuevo_id_producto" name="nuevo_id_producto" autocomplete="off">
+            </div>
+            <div class="pd-field" style="flex:1; min-width:180px;">
+                <label>Nombre</label>
+                <input type="text" id="nuevo_nombre" name="nuevo_nombre">
+            </div>
+            <div class="pd-field chico">
+                <label>Precio ref. (máx. <?php echo number_format(PRECIO_MAX, 0); ?>)</label>
+                <input type="number" step="0.01" id="nuevo_precio" name="nuevo_precio" min="0" max="<?php echo PRECIO_MAX; ?>" oninput="usarPrecioNuevo()">
+            </div>
+            <div class="pd-field">
+                <label>Categoría</label>
+                <select id="nuevo_categoria" name="nuevo_categoria" onchange="toggleCategoriaOtro()">
+                    <option value="Carnes y Embutidos">Carnes y Embutidos</option>
+                    <option value="Lácteos">Lácteos</option>
+                    <option value="Verduras y Vegetales">Verduras y Vegetales</option>
+                    <option value="Frutas">Frutas</option>
+                    <option value="Granos, Cereales y Harinas">Granos, Cereales y Harinas</option>
+                    <option value="Condimentos y Especias">Condimentos y Especias</option>
+                    <option value="Bebidas">Bebidas</option>
+                    <option value="Panadería y Tortillas">Panadería y Tortillas</option>
+                    <option value="Enlatados y Conservas">Enlatados y Conservas</option>
+                    <option value="Desechables y Empaques">Desechables y Empaques</option>
+                    <option value="Otros">Otros</option>
+                </select>
+            </div>
+            <div class="pd-field" id="fila_categoria_otro" style="display:none;">
+                <label>Especifica la categoría</label>
+                <input type="text" id="nuevo_categoria_otro" name="nuevo_categoria_otro" placeholder="Escribe la categoría">
+            </div>
+        </div>
+        <p style="margin:10px 0 0 0;">
+            <button type="button" class="link-toggle" onclick="activarModoExistente()">← Buscar producto existente en su lugar</button>
+        </p>
     </div>
 
-    <div class="pd-row" style="margin-top:10px;">
-        <div class="pd-field" style="flex:1;"><label>Producto seleccionado</label><input type="text" id="nombre_producto" readonly></div>
+    <div class="pd-row" style="margin-top:14px;">
         <div class="pd-field chico">
-            <label>Cantidad (máx. 500)</label>
-            <input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" max="500" value="1" oninput="calcularMonto()" required>
+            <label>Cantidad (máx. <?php echo CANTIDAD_MAX; ?>)</label>
+            <input type="number" step="0.01" name="cantidad" id="cantidad" min="0.01" max="<?php echo CANTIDAD_MAX; ?>" value="1" oninput="calcularMonto()" required>
         </div>
         <div class="pd-field"><label>Monto total</label><input type="number" step="0.01" name="monto" id="monto" required></div>
         <div class="pd-field">
@@ -172,11 +287,7 @@ function seleccionarProducto(p) {
 
     // Autocompleta el proveedor asignado a este producto (se puede cambiar si compraste a otro)
     const selectProv = document.getElementById("id_prov");
-    if (p.ID_prov) {
-        selectProv.value = p.ID_prov;
-    } else {
-        selectProv.value = "";
-    }
+    selectProv.value = p.ID_prov || "";
 }
 
 function calcularMonto() {
@@ -186,18 +297,82 @@ function calcularMonto() {
     }
 }
 
+// El precio de referencia del producto nuevo también sirve para calcular el monto total, igual que con uno existente.
+function usarPrecioNuevo() {
+    precioSeleccionado = parseFloat(document.getElementById("nuevo_precio").value) || 0;
+    calcularMonto();
+}
+
+const CATEGORIAS_ESTANDAR = [
+    "Carnes y Embutidos", "Lácteos", "Verduras y Vegetales", "Frutas",
+    "Granos, Cereales y Harinas", "Condimentos y Especias", "Bebidas",
+    "Panadería y Tortillas", "Enlatados y Conservas", "Desechables y Empaques"
+];
+function toggleCategoriaOtro() {
+    const esOtro = document.getElementById("nuevo_categoria").value === "Otros";
+    document.getElementById("fila_categoria_otro").style.display = esOtro ? "flex" : "none";
+}
+
+// Alterna entre "producto existente" (buscador) y "producto nuevo" (mini-formulario).
+// Todo pasa dentro del mismo módulo, sin salirse a Stock.
+function activarModoNuevo() {
+    document.getElementById("bloqueExistente").style.display = "none";
+    document.getElementById("bloqueNuevo").style.display = "block";
+    document.getElementById("producto_nuevo").value = "1";
+
+    document.getElementById("id_producto").value = "";
+    document.getElementById("nombre_producto").value = "";
+    precioSeleccionado = parseFloat(document.getElementById("nuevo_precio").value) || 0;
+    calcularMonto();
+}
+
+function activarModoExistente() {
+    document.getElementById("bloqueNuevo").style.display = "none";
+    document.getElementById("bloqueExistente").style.display = "block";
+    document.getElementById("producto_nuevo").value = "0";
+
+    document.getElementById("nuevo_id_producto").value = "";
+    document.getElementById("nuevo_nombre").value = "";
+    document.getElementById("nuevo_precio").value = "";
+    document.getElementById("nuevo_categoria_otro").value = "";
+    precioSeleccionado = 0;
+}
+
 document.getElementById("formCompra").addEventListener("submit", function (e) {
-    if (!document.getElementById("id_producto").value) {
+    const cantidad = parseFloat(document.getElementById("cantidad").value) || 0;
+    if (cantidad > <?php echo CANTIDAD_MAX; ?>) {
         e.preventDefault();
-        alert("Selecciona un producto de la lista de búsqueda.");
+        alert("La cantidad máxima permitida por compra es <?php echo CANTIDAD_MAX; ?> unidades. Si necesitas más, regístrala en varias compras.");
         return;
     }
-    const cantidad = parseFloat(document.getElementById("cantidad").value) || 0;
-    if (cantidad > 500) {
+
+    if (document.getElementById("producto_nuevo").value === "1") {
+        if (!document.getElementById("nuevo_id_producto").value.trim() || !document.getElementById("nuevo_nombre").value.trim()) {
+            e.preventDefault();
+            alert("Completa el ID y el nombre del producto nuevo.");
+            return;
+        }
+        if (!document.getElementById("nuevo_precio").value) {
+            e.preventDefault();
+            alert("Pon el precio de referencia del producto nuevo.");
+            return;
+        }
+    } else if (!document.getElementById("id_producto").value) {
         e.preventDefault();
-        alert("La cantidad máxima permitida por compra es 500 unidades. Si necesitas más, regístrala en varias compras.");
+        alert("Selecciona un producto de la lista de búsqueda, o usa \"+ Nuevo producto\".");
     }
 });
+
+// Si llegamos desde el aviso de stock bajo (o cualquier link con ?id_producto=...),
+// preseleccionamos ese producto para no tener que buscarlo de nuevo.
+const idProductoPrefill = <?php echo json_encode($idProductoPrefill); ?>;
+if (idProductoPrefill) {
+    const productoPrefill = productos.find(p => p.ID_Producto === idProductoPrefill);
+    if (productoPrefill) {
+        seleccionarProducto(productoPrefill);
+        document.getElementById("cantidad").focus();
+    }
+}
 </script>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>

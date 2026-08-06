@@ -59,7 +59,7 @@ $gastos = $pdo->query("SELECT g.*, COALESCE(SUM(gd.monto), 0) AS total
                         FROM gastos g
                         LEFT JOIN gastos_detalles gd ON gd.ID_gastos = g.ID_gastos
                         GROUP BY g.ID_gastos
-                        ORDER BY g.nombre")->fetchAll(PDO::FETCH_ASSOC);
+                        ORDER BY g.ID_gastos")->fetchAll(PDO::FETCH_ASSOC);
 
 // Cuál categoría está seleccionada (por defecto, la primera de la lista)
 $seleccionado = $_GET["id"] ?? ($gastos[0]["ID_gastos"] ?? null);

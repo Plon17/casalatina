@@ -8,6 +8,25 @@ $mensaje = "";
 $error = "";
 $esAdmin = ($_SESSION["rol"] ?? "") === "administrador";
 
+const PRECIO_MAX = 5000;
+const CANTIDAD_INSUMO_MAX = 500;
+
+// Valida el precio del plato y las cantidades de cada insumo de la receta.
+// Devuelve un mensaje de error, o "" si todo está bien.
+function validarMenu($precio, string $ingredientesJson): string {
+    if (!is_numeric($precio) || (float) $precio < 0 || (float) $precio > PRECIO_MAX) {
+        return "El precio debe ser un número entre 0 y " . number_format(PRECIO_MAX, 0) . ".";
+    }
+    $ingredientes = json_decode($ingredientesJson, true) ?: [];
+    foreach ($ingredientes as $ing) {
+        $cantidad = (float) ($ing["cantidad"] ?? 0);
+        if ($cantidad <= 0 || $cantidad > CANTIDAD_INSUMO_MAX) {
+            return "La cantidad de cada insumo debe ser mayor a 0 y no pasar de " . CANTIDAD_INSUMO_MAX . ".";
+        }
+    }
+    return "";
+}
+
 // Reemplaza los insumos de stock (para descuento automático) de un item del menú a partir de un JSON.
 function guardarIngredientes(PDO $pdo, string $idMenu, string $json): void {
     $ingredientes = json_decode($json, true) ?: [];
@@ -36,8 +55,11 @@ function guardarReceta(PDO $pdo, string $idMenu, string $preparacion, string $ti
 
     $stmt = $pdo->prepare("INSERT INTO menu_receta (ID_Menu, preparacion, tiempo_preparacion, porciones, notas)
                             VALUES (?,?,?,?,?)
-                            ON DUPLICATE KEY UPDATE preparacion=VALUES(preparacion),
-                                                    tiempo_preparacion=VALUES(tiempo_preparacion), porciones=VALUES(porciones), notas=VALUES(notas)");
+                            ON CONFLICT(ID_Menu) DO UPDATE SET
+                                preparacion = excluded.preparacion,
+                                tiempo_preparacion = excluded.tiempo_preparacion,
+                                porciones = excluded.porciones,
+                                notas = excluded.notas");
     $stmt->execute([$idMenu, $preparacion ?: null, $tiempo ?: null, $porciones ?: null, $notas ?: null]);
 }
 
@@ -49,6 +71,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
     } else {
 
     if ($_POST["accion"] === "guardar") {
+        $validacion = validarMenu($_POST["precio"] ?? null, $_POST["ingredientes_json"] ?? "[]");
+        if ($validacion !== "") {
+            $error = $validacion;
+        } else {
         // El ID es la llave primaria de todas formas, pero lo revisamos antes para
         // dar un mensaje claro en vez de una excepción críptica de MySQL.
         $stmtExiste = $pdo->prepare("SELECT 1 FROM menu WHERE ID_Menu = ?");
@@ -75,9 +101,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
                 $error = "Error al agregar: " . $e->getMessage();
             }
         }
+        }
     }
 
     if ($_POST["accion"] === "editar") {
+        $validacion = validarMenu($_POST["precio"] ?? null, $_POST["ingredientes_json"] ?? "[]");
+        if ($validacion !== "") {
+            $error = $validacion;
+        } else {
         $pdo->beginTransaction();
         try {
             // Traemos precio y receta anteriores para poder marcarlo en la auditoría si cambiaron
@@ -137,26 +168,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
             $pdo->rollBack();
             $error = "Error al actualizar: " . $e->getMessage();
         }
+        }
     }
 
     if ($_POST["accion"] === "eliminar") {
-        // menu_ingredientes y menu_receta tienen ON DELETE CASCADE, pero pedido_detalle NO
-        // (con razón: no queremos que un pedido viejo pierda su referencia).
-        // Si el plato ya se usó en algún pedido, lo desactivamos en vez de borrarlo.
-        try {
-            $stmt = $pdo->prepare("DELETE FROM menu WHERE ID_Menu=?");
-            $stmt->execute([$_POST["id_menu"]]);
-            $mensaje = "Item eliminado.";
-            registrarAuditoria($pdo, "menu", "Item eliminado", $_POST["id_menu"]);
-        } catch (PDOException $e) {
-            if ($e->getCode() === "23000") {
-                $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
-                $mensaje = "Este plato ya se usó en algún pedido. Se marcó como inactivo: ya no aparece al armar pedidos nuevos.";
-                registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
-            } else {
-                $error = "Error al eliminar: " . $e->getMessage();
-            }
-        }
+        // Ya no se elimina ningún item del menú, solo se desactiva: se conserva el
+        // historial de pedidos que ya lo usaron, y deja de aparecer al armar pedidos nuevos.
+        $pdo->prepare("UPDATE menu SET activo = 0 WHERE ID_Menu=?")->execute([$_POST["id_menu"]]);
+        $mensaje = "Item desactivado: ya no aparece al armar pedidos nuevos.";
+        registrarAuditoria($pdo, "menu", "Item desactivado", $_POST["id_menu"]);
     }
 
     if ($_POST["accion"] === "reactivar") {
@@ -168,12 +188,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 }
 
 $buscar = trim($_GET["buscar"] ?? "");
+$verInactivos = ($_GET["ver"] ?? "") === "inactivos";
+
+$condiciones = ["activo = ?"];
+$params = [$verInactivos ? 0 : 1];
 if ($buscar !== "") {
-    $stmt = $pdo->prepare("SELECT * FROM menu WHERE nombre LIKE ? OR ID_Menu LIKE ?");
-    $stmt->execute(["%$buscar%", "%$buscar%"]);
-} else {
-    $stmt = $pdo->query("SELECT * FROM menu");
+    $condiciones[] = "(nombre LIKE ? OR ID_Menu LIKE ?)";
+    $params[] = "%$buscar%";
+    $params[] = "%$buscar%";
 }
+$stmt = $pdo->prepare("SELECT * FROM menu WHERE " . implode(" AND ", $condiciones));
+$stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Adjuntamos los insumos de stock de cada plato (para mostrarlos y para poder editarlos)
@@ -219,18 +244,11 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 .receta-badge{background:var(--color-success-bg);color:var(--color-success);padding:1px 8px;border-radius:10px;font-size:12px;}
 .receta-vacia{background:var(--color-surface-alt);color:#888;padding:1px 8px;border-radius:10px;font-size:12px;}
+.toggle-inactivos{background:none;border:1px solid #ccc;padding:6px 12px;border-radius:4px;cursor:pointer;text-decoration:none;color:#333;font-size:13px;}
+.toggle-inactivos.activo{background:var(--color-surface-alt);font-weight:bold;}
 </style>
 
 <p class="titulo-modulo">Menú</p>
-
-<form method="GET" class="pd-row" style="margin-bottom:15px;">
-    <div class="pd-field" style="flex:1; min-width:220px;">
-        <label>Buscar</label>
-        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
-    </div>
-    <button type="submit">BUSCAR</button>
-    <?php if ($buscar): ?><a class="btn" href="menu.php">Limpiar</a><?php endif; ?>
-</form>
 
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
@@ -252,8 +270,8 @@ require_once __DIR__ . "/includes/layout_top.php";
             <input type="text" name="nombre" id="nombre" required>
         </div>
         <div class="pd-field chico">
-            <label>Precio</label>
-            <input type="number" step="0.01" name="precio" id="precio" required>
+            <label>Precio (máx. <?php echo number_format(PRECIO_MAX, 0); ?>)</label>
+            <input type="number" step="0.01" name="precio" id="precio" min="0" max="<?php echo PRECIO_MAX; ?>" required>
         </div>
         <div class="pd-field">
             <label>Tipo</label>
@@ -295,7 +313,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
 
     <h4 style="margin:0 0 8px 0;">Ingredientes (también descuentan del stock automáticamente)</h4>
-    <p style="margin:0 0 10px 0; color:#777; font-size:13px;">Esta lista es la única fuente de ingredientes: se usa tanto para la receta impresa como para descontar inventario — no hace falta escribirlos en otro lado.</p>
+    <p style="margin:0 0 10px 0; color:#777; font-size:13px;">Esta lista es la única fuente de ingredientes: se usa tanto para la receta impresa como para descontar inventario — no hace falta escribirlos en otro lado. Cantidad máxima por insumo: <?php echo CANTIDAD_INSUMO_MAX; ?>.</p>
     <div class="pd-row">
         <div class="pd-field" style="flex:1; min-width:220px;">
             <label>Buscar insumo</label>
@@ -303,7 +321,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field chico">
             <label>Cantidad usada</label>
-            <input type="number" step="0.01" id="cantidad_insumo" value="1" min="0.01">
+            <input type="number" step="0.01" id="cantidad_insumo" value="1" min="0.01" max="<?php echo CANTIDAD_INSUMO_MAX; ?>">
         </div>
         <button type="button" onclick="agregarIngrediente()">Agregar a la receta</button>
     </div>
@@ -332,10 +350,25 @@ require_once __DIR__ . "/includes/layout_top.php";
 <?php endif; ?>
 
 <div class="pd-card">
+<form method="GET" class="pd-row" style="margin-bottom:0;">
+    <input type="hidden" name="ver" value="<?php echo $verInactivos ? "inactivos" : ""; ?>">
+    <div class="pd-field" style="flex:1; min-width:220px;">
+        <label>Buscar</label>
+        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
+    </div>
+    <button type="submit">BUSCAR</button>
+    <?php if ($buscar): ?><a class="btn" href="menu.php<?php echo $verInactivos ? '?ver=inactivos' : ''; ?>">Limpiar</a><?php endif; ?>
+    <div style="flex:1;"></div>
+    <a class="toggle-inactivos <?php echo !$verInactivos ? 'activo' : ''; ?>" href="menu.php<?php echo $buscar ? '?buscar=' . urlencode($buscar) : ''; ?>">Activos</a>
+    <a class="toggle-inactivos <?php echo $verInactivos ? 'activo' : ''; ?>" href="menu.php?ver=inactivos<?php echo $buscar ? '&buscar=' . urlencode($buscar) : ''; ?>">Ver desactivados</a>
+</form>
+</div>
+
+<div class="pd-card">
 <table class="pd-tabla">
 <tr><th>ID_Menu</th><th>Nombre</th><th>Precio</th><th>Tipo</th><th>Descripción</th><th>Insumos (stock)</th><th>Estado</th><th></th></tr>
 <?php if (count($items) === 0): ?>
-<tr><td colspan="8">No se encontraron items.</td></tr>
+<tr><td colspan="8"><?php echo $verInactivos ? "No hay items desactivados." : "No se encontraron items."; ?></td></tr>
 <?php endif; ?>
 <?php foreach ($items as $it): ?>
 <tr<?php echo !$it["activo"] ? ' style="opacity:.55;"' : ''; ?>>
@@ -412,8 +445,13 @@ document.getElementById("buscar_insumo")?.addEventListener("keyup", function () 
 // Valida y agrega el insumo seleccionado a la receta de stock del item del menú en edición.
 function agregarIngrediente() {
     const cantidad = parseFloat(document.getElementById("cantidad_insumo").value);
+    const CANTIDAD_INSUMO_MAX = <?php echo CANTIDAD_INSUMO_MAX; ?>;
     if (!idInsumoSeleccionado || isNaN(cantidad) || cantidad <= 0) {
         alert("Busca y selecciona un insumo, y pon una cantidad válida.");
+        return;
+    }
+    if (cantidad > CANTIDAD_INSUMO_MAX) {
+        alert("La cantidad no puede pasar de " + CANTIDAD_INSUMO_MAX + ".");
         return;
     }
     if (receta.some(r => r.id_producto === idInsumoSeleccionado)) {

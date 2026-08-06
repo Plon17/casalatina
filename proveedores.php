@@ -7,40 +7,42 @@ require_once __DIR__ . "/includes/auditoria.php";
 $mensaje = "";
 $error = "";
 
+// Teléfono: solo dígitos, exactamente 8 (formato Honduras). Vacío es válido (es opcional).
+function validarTelefono(string $tel): bool {
+    $tel = trim($tel);
+    return $tel === "" || preg_match('/^\d{8}$/', $tel) === 1;
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
 
+    $telefono = trim($_POST["telefono"] ?? "");
+    if (in_array($_POST["accion"], ["guardar", "editar"], true) && !validarTelefono($telefono)) {
+        $error = "El teléfono debe tener exactamente 8 dígitos numéricos (sin espacios, guiones ni letras).";
+    } else {
+
     if ($_POST["accion"] === "guardar") {
-        $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM proveedores")->fetch()["c"] + 1;
-        $idProv = "PV" . str_pad($n, 4, "0", STR_PAD_LEFT);
+        $max = (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_prov,3) AS INTEGER)),0) AS m FROM proveedores")->fetch()["m"];
+        $idProv = "PV" . str_pad($max + 1, 4, "0", STR_PAD_LEFT);
         $stmt = $pdo->prepare("INSERT INTO proveedores (ID_prov, nom_prov, tel_prov, dir_prov, email_prov) VALUES (?,?,?,?,?)");
-        $stmt->execute([$idProv, $_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null]);
+        $stmt->execute([$idProv, $_POST["nombre"], $telefono ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null]);
         $mensaje = "Proveedor agregado ($idProv).";
         registrarAuditoria($pdo, "proveedores", "Proveedor agregado", "$idProv - " . $_POST["nombre"]);
     }
 
     if ($_POST["accion"] === "editar") {
         $stmt = $pdo->prepare("UPDATE proveedores SET nom_prov=?, tel_prov=?, dir_prov=?, email_prov=? WHERE ID_prov=?");
-        $stmt->execute([$_POST["nombre"], $_POST["telefono"] ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null, $_POST["id_prov"]]);
+        $stmt->execute([$_POST["nombre"], $telefono ?: null, $_POST["direccion"] ?: null, $_POST["email"] ?: null, $_POST["id_prov"]]);
         $mensaje = "Proveedor actualizado.";
         registrarAuditoria($pdo, "proveedores", "Proveedor editado", $_POST["id_prov"]);
     }
 
-    if ($_POST["accion"] === "eliminar") {
-        // producto.ID_prov referencia esta tabla: si algún insumo todavía le compra
-        // a este proveedor, lo desactivamos en vez de borrarlo (igual que en Stock/Menú).
-        $stmtProds = $pdo->prepare("SELECT nombre_pro FROM producto WHERE ID_prov = ?");
-        $stmtProds->execute([$_POST["id_prov"]]);
-        $productos = array_column($stmtProds->fetchAll(PDO::FETCH_ASSOC), "nombre_pro");
-
-        if ($productos) {
-            $pdo->prepare("UPDATE proveedores SET activo = 0 WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
-            $mensaje = "Este proveedor todavía es el asignado de " . count($productos) . " producto(s) en Stock (" . implode(", ", $productos) . "), así que no se puede borrar sin perder esa referencia. Se marcó como inactivo: ya no aparece como opción al asignar proveedor a un producto.";
-            registrarAuditoria($pdo, "proveedores", "Proveedor desactivado", $_POST["id_prov"]);
-        } else {
-            $pdo->prepare("DELETE FROM proveedores WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
-            $mensaje = "Proveedor eliminado.";
-            registrarAuditoria($pdo, "proveedores", "Proveedor eliminado", $_POST["id_prov"]);
-        }
+    if ($_POST["accion"] === "desactivar") {
+        // Ya no se elimina ningún proveedor, solo se desactiva: así deja de aparecer
+        // como opción al asignar proveedor a un producto en otros módulos, pero se
+        // conserva la referencia histórica (compras, productos ya asignados, etc).
+        $pdo->prepare("UPDATE proveedores SET activo = 0 WHERE ID_prov=?")->execute([$_POST["id_prov"]]);
+        $mensaje = "Proveedor desactivado: ya no aparece como opción al asignar proveedor a un producto.";
+        registrarAuditoria($pdo, "proveedores", "Proveedor desactivado", $_POST["id_prov"]);
     }
 
     if ($_POST["accion"] === "reactivar") {
@@ -48,14 +50,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["accion"])) {
         $mensaje = "Proveedor reactivado.";
         registrarAuditoria($pdo, "proveedores", "Proveedor reactivado", $_POST["id_prov"]);
     }
+    }
 }
 
 $buscar = trim($_GET["buscar"] ?? "");
+$verInactivos = ($_GET["ver"] ?? "") === "inactivos";
+
 if ($buscar !== "") {
-    $stmt = $pdo->prepare("SELECT * FROM proveedores WHERE nom_prov LIKE ? OR ID_prov LIKE ?");
-    $stmt->execute(["%$buscar%", "%$buscar%"]);
+    $stmt = $pdo->prepare("SELECT * FROM proveedores WHERE activo = ? AND (nom_prov LIKE ? OR ID_prov LIKE ?)");
+    $stmt->execute([$verInactivos ? 0 : 1, "%$buscar%", "%$buscar%"]);
 } else {
-    $stmt = $pdo->query("SELECT * FROM proveedores");
+    $stmt = $pdo->prepare("SELECT * FROM proveedores WHERE activo = ?");
+    $stmt->execute([$verInactivos ? 0 : 1]);
 }
 $proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -89,6 +95,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-actions{margin-top:14px;display:flex;gap:10px;}
 .badge-prod{background:var(--color-info-bg);color:var(--color-info);padding:1px 8px;border-radius:10px;font-size:12px;}
 .badge-sin{background:var(--color-surface-alt);color:#999;padding:1px 8px;border-radius:10px;font-size:12px;}
+.toggle-inactivos{background:none;border:1px solid #ccc;padding:6px 12px;border-radius:4px;cursor:pointer;text-decoration:none;color:#333;font-size:13px;}
+.toggle-inactivos.activo{background:var(--color-surface-alt);font-weight:bold;}
 </style>
 
 <p class="titulo-modulo">Proveedores</p>
@@ -109,7 +117,8 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field">
             <label>Teléfono</label>
-            <input type="text" name="telefono" id="telefono">
+            <input type="text" name="telefono" id="telefono" inputmode="numeric" pattern="\d{8}" maxlength="8"
+                   placeholder="8 dígitos" title="Debe tener exactamente 8 dígitos numéricos">
         </div>
         <div class="pd-field">
             <label>Correo electrónico</label>
@@ -135,14 +144,18 @@ require_once __DIR__ . "/includes/layout_top.php";
         <label>Buscar</label>
         <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
     </div>
+    <input type="hidden" name="ver" value="<?php echo $verInactivos ? "inactivos" : ""; ?>">
     <button type="submit">BUSCAR</button>
-    <?php if ($buscar): ?><a href="proveedores.php" class="btn">Limpiar</a><?php endif; ?>
+    <?php if ($buscar): ?><a href="proveedores.php<?php echo $verInactivos ? '?ver=inactivos' : ''; ?>" class="btn">Limpiar</a><?php endif; ?>
+    <div style="flex:1;"></div>
+    <a class="toggle-inactivos <?php echo !$verInactivos ? 'activo' : ''; ?>" href="proveedores.php<?php echo $buscar ? '?buscar=' . urlencode($buscar) : ''; ?>">Activos</a>
+    <a class="toggle-inactivos <?php echo $verInactivos ? 'activo' : ''; ?>" href="proveedores.php?ver=inactivos<?php echo $buscar ? '&buscar=' . urlencode($buscar) : ''; ?>">Ver desactivados</a>
 </form>
 
 <table class="pd-tabla">
 <tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Dirección</th><th>Productos</th><th>Total comprado</th><th>Estado</th><th></th></tr>
 <?php if (count($proveedores) === 0): ?>
-<tr><td colspan="9">No hay proveedores registrados.</td></tr>
+<tr><td colspan="9"><?php echo $verInactivos ? "No hay proveedores desactivados." : "No hay proveedores registrados."; ?></td></tr>
 <?php endif; ?>
 <?php foreach ($proveedores as $p): ?>
 <tr<?php echo !$p["activo"] ? ' style="opacity:.55;"' : ''; ?>>
@@ -169,10 +182,10 @@ require_once __DIR__ . "/includes/layout_top.php";
     <td>
         <button type="button" onclick="cargarFila(<?php echo htmlspecialchars(json_encode($p)); ?>)">EDITAR</button>
         <?php if ($p["activo"]): ?>
-        <form method="POST" style="display:inline" onsubmit="return confirm('¿Eliminar este proveedor?');">
-            <input type="hidden" name="accion" value="eliminar">
+        <form method="POST" style="display:inline" onsubmit="return confirm('¿Desactivar este proveedor? Ya no aparecerá como opción al asignar proveedor a un producto.');">
+            <input type="hidden" name="accion" value="desactivar">
             <input type="hidden" name="id_prov" value="<?php echo htmlspecialchars($p["ID_prov"]); ?>">
-            <button type="submit">ELIMINAR</button>
+            <button type="submit">DESACTIVAR</button>
         </form>
         <?php else: ?>
         <form method="POST" style="display:inline">
@@ -209,6 +222,11 @@ function nuevoProveedor() {
     document.getElementById("btnEditar").style.display = "none";
     document.getElementById("btnNuevo").style.display = "none";
 }
+
+// Filtra teclas al vuelo: solo dígitos, máximo 8 caracteres
+document.getElementById("telefono").addEventListener("input", function () {
+    this.value = this.value.replace(/\D/g, "").slice(0, 8);
+});
 </script>
 
 <?php require_once __DIR__ . "/includes/layout_bottom.php"; ?>

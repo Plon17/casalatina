@@ -19,8 +19,8 @@ $error = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guardar_empleado") {
     $puestoFinal = ($_POST["puesto_empl"] === "Otro" && trim($_POST["puesto_otro"] ?? "") !== "")
         ? trim($_POST["puesto_otro"]) : $_POST["puesto_empl"];
-    $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM empleado")->fetch()["c"] + 1;
-    $codEmpleado = "E" . str_pad($n, 3, "0", STR_PAD_LEFT);
+    $max = (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(cod_empleado,2) AS INTEGER)),0) AS m FROM empleado")->fetch()["m"];
+    $codEmpleado = "E" . str_pad($max + 1, 3, "0", STR_PAD_LEFT);
     $stmt = $pdo->prepare("INSERT INTO empleado (cod_empleado, nombre_empl, puesto_empl, salario_empl) VALUES (?,?,?,?)");
     $stmt->execute([$codEmpleado, $_POST["nombre_empl"], $puestoFinal, $_POST["salario_empl"] ?: null]);
     $mensaje = "Empleado agregado ($codEmpleado).";
@@ -50,7 +50,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "elimi
 
     if ($usos) {
         $pdo->prepare("UPDATE empleado SET activo = 0 WHERE cod_empleado=?")->execute([$cod]);
-        $mensaje = "Este empleado tiene " . implode(" y ", $usos) . " asociados, así que no se puede borrar sin perder ese historial. Se marcó como inactivo.";
         registrarAuditoria($pdo, "usuarios", "Empleado desactivado", $cod);
     } else {
         $pdo->prepare("DELETE FROM empleado WHERE cod_empleado=?")->execute([$cod]);
@@ -81,8 +80,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
     if (empty($_POST["contrasena"])) {
         $error = "La contraseña es obligatoria para crear un usuario nuevo.";
     } else {
-        $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM usuarios")->fetch()["c"] + 1;
-        $idUsuario = "U" . str_pad($n, 3, "0", STR_PAD_LEFT);
+        $max = (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_usuario,2) AS INTEGER)),0) AS m FROM usuarios")->fetch()["m"];
+        $idUsuario = "U" . str_pad($max + 1, 3, "0", STR_PAD_LEFT);
         $hash = password_hash($_POST["contrasena"], PASSWORD_DEFAULT);
         $stmt = $pdo->prepare("INSERT INTO usuarios (ID_usuario, usuario, contrasena, rol, cod_empleado) VALUES (?,?,?,?,?)");
         $stmt->execute([$idUsuario, $_POST["usuario"], $hash, $_POST["rol"], $_POST["cod_empleado"] ?: null]);
@@ -104,13 +103,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "edita
     } elseif ($rolActual === "administrador" && $_POST["rol"] !== "administrador" && contarAdmins($pdo, $idUsuario) === 0) {
         $error = "No puedes quitarle el rol de administrador: es el único administrador que queda.";
     } else {
+        // El empleado vinculado NO se puede editar aquí a propósito (se fija al crear
+        // la cuenta y ya). Por eso el UPDATE no toca cod_empleado, aunque venga en el POST.
         if (!empty($_POST["contrasena"])) {
             $hash = password_hash($_POST["contrasena"], PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare("UPDATE usuarios SET usuario=?, contrasena=?, rol=?, cod_empleado=? WHERE ID_usuario=?");
-            $stmt->execute([$_POST["usuario"], $hash, $_POST["rol"], $_POST["cod_empleado"] ?: null, $idUsuario]);
+            $stmt = $pdo->prepare("UPDATE usuarios SET usuario=?, contrasena=?, rol=? WHERE ID_usuario=?");
+            $stmt->execute([$_POST["usuario"], $hash, $_POST["rol"], $idUsuario]);
         } else {
-            $stmt = $pdo->prepare("UPDATE usuarios SET usuario=?, rol=?, cod_empleado=? WHERE ID_usuario=?");
-            $stmt->execute([$_POST["usuario"], $_POST["rol"], $_POST["cod_empleado"] ?: null, $idUsuario]);
+            $stmt = $pdo->prepare("UPDATE usuarios SET usuario=?, rol=? WHERE ID_usuario=?");
+            $stmt->execute([$_POST["usuario"], $_POST["rol"], $idUsuario]);
         }
         $mensaje = "Usuario actualizado.";
         $detalleAudit = $idUsuario . " (" . $_POST["usuario"] . ")";
@@ -143,11 +144,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "elimi
 
 // ---------- Datos para mostrar ----------
 
-$empleados = $pdo->query("SELECT * FROM empleado ORDER BY activo DESC, nombre_empl")->fetchAll(PDO::FETCH_ASSOC);
+$empleados = $pdo->query("SELECT * FROM empleado ORDER BY activo DESC, cod_empleado")->fetchAll(PDO::FETCH_ASSOC);
 
 $usuarios = $pdo->query("SELECT u.*, e.nombre_empl FROM usuarios u
                           LEFT JOIN empleado e ON e.cod_empleado = u.cod_empleado
-                          ORDER BY u.usuario")->fetchAll(PDO::FETCH_ASSOC);
+                          ORDER BY u.ID_usuario")->fetchAll(PDO::FETCH_ASSOC);
 
 // Solo empleados activos como opción para vincular una cuenta nueva
 $empleadosActivos = $pdo->query("SELECT cod_empleado, nombre_empl FROM empleado WHERE activo = 1 ORDER BY nombre_empl")->fetchAll(PDO::FETCH_ASSOC);
@@ -162,6 +163,8 @@ require_once __DIR__ . "/includes/layout_top.php";
 .pd-field{display:flex;flex-direction:column;gap:4px;}
 .pd-field label{font-size:13px;color:#444;}
 .pd-field input,.pd-field select{padding:6px 8px;border:1px solid #ccc;border-radius:4px;min-width:150px;}
+.pd-field select:disabled{background:var(--color-surface-alt);color:#888;cursor:not-allowed;}
+.pd-hint{font-size:12px;color:#888;margin:2px 0 0 0;}
 .pd-tabla{width:100%;border-collapse:collapse;}
 .pd-tabla th,.pd-tabla td{border:1px solid #ddd;padding:6px 10px;text-align:left;font-size:14px;}
 .pd-tabla th{background:var(--color-surface-alt);}
@@ -269,11 +272,12 @@ require_once __DIR__ . "/includes/layout_top.php";
 <form method="POST" id="formUsuario">
     <input type="hidden" name="accion" id="accionUsuario" value="guardar_usuario">
     <input type="hidden" name="id_usuario" id="id_usuario">
+    <input type="hidden" name="cod_empleado" id="cod_empleado_hidden">
     <div class="pd-row">
         <div class="pd-field"><label>Usuario (login)</label><input type="text" name="usuario" id="usuario" required></div>
         <div class="pd-field">
             <label id="labelContrasena">Contraseña</label>
-            <input type="password" name="contrasena" id="contrasena" placeholder="Dejar en blanco para no cambiar" autocomplete="new-password">
+            <input type="password" name="contrasena" id="contrasena" placeholder="Vacio para no cambiar" autocomplete="new-password">
         </div>
         <div class="pd-field">
             <label>Rol</label>
@@ -284,7 +288,7 @@ require_once __DIR__ . "/includes/layout_top.php";
         </div>
         <div class="pd-field">
             <label>Empleado vinculado</label>
-            <select name="cod_empleado" id="cod_empleado_usuario">
+            <select id="cod_empleado_usuario">
                 <option value="">-- ninguno --</option>
                 <?php foreach ($empleadosActivos as $e): ?>
                 <option value="<?php echo htmlspecialchars($e["cod_empleado"]); ?>">
@@ -292,6 +296,7 @@ require_once __DIR__ . "/includes/layout_top.php";
                 </option>
                 <?php endforeach; ?>
             </select>
+            <p class="pd-hint" id="hintEmpleado" style="display:none;">No se puede cambiar una vez creada la cuenta.</p>
         </div>
     </div>
     <div class="pd-actions">
@@ -343,13 +348,25 @@ function nuevoEmpleado() {
     document.getElementById("btnNuevoEmpleado").style.display = "none";
 }
 
+// Mantiene el hidden sincronizado con el select visible (el select se deshabilita
+// al editar, y un select disabled no manda su valor en el POST — por eso el hidden).
+document.getElementById("cod_empleado_usuario").addEventListener("change", function () {
+    document.getElementById("cod_empleado_hidden").value = this.value;
+});
+
 function cargarUsuario(u) {
     document.getElementById("tituloUsuario").textContent = "Editando " + u.usuario;
     document.getElementById("id_usuario").value = u.ID_usuario;
     document.getElementById("usuario").value = u.usuario;
     document.getElementById("contrasena").value = "";
     document.getElementById("rol").value = u.rol;
-    document.getElementById("cod_empleado_usuario").value = u.cod_empleado || "";
+
+    const selectEmpleado = document.getElementById("cod_empleado_usuario");
+    selectEmpleado.value = u.cod_empleado || "";
+    selectEmpleado.disabled = true;
+    document.getElementById("cod_empleado_hidden").value = u.cod_empleado || "";
+    document.getElementById("hintEmpleado").style.display = "block";
+
     document.getElementById("btnGuardarUsuario").style.display = "none";
     document.getElementById("btnEditarUsuario").style.display = "inline-block";
     document.getElementById("btnNuevoUsuario").style.display = "inline-block";
@@ -359,6 +376,12 @@ function nuevoUsuario() {
     document.getElementById("tituloUsuario").textContent = "+ Nuevo usuario";
     document.getElementById("formUsuario").reset();
     document.getElementById("accionUsuario").value = "guardar_usuario";
+
+    const selectEmpleado = document.getElementById("cod_empleado_usuario");
+    selectEmpleado.disabled = false;
+    document.getElementById("cod_empleado_hidden").value = "";
+    document.getElementById("hintEmpleado").style.display = "none";
+
     document.getElementById("btnGuardarUsuario").style.display = "inline-block";
     document.getElementById("btnEditarUsuario").style.display = "none";
     document.getElementById("btnNuevoUsuario").style.display = "none";

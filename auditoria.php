@@ -65,7 +65,7 @@ require_once __DIR__ . "/includes/layout_top.php";
     <div class="pd-field"><label>Desde</label><input type="date" name="desde" value="<?php echo htmlspecialchars($desde); ?>"></div>
     <div class="pd-field"><label>Hasta</label><input type="date" name="hasta" value="<?php echo htmlspecialchars($hasta); ?>"></div>
     <button type="submit">BUSCAR</button>
-    <?php if ($usuario || $modulo || $texto || $desde || $hasta): ?><a href="auditoria.php" style="align-self:center;">Limpiar</a><?php endif; ?>
+    <?php if ($usuario || $modulo || $texto || $desde || $hasta): ?><a class="btn" href="auditoria.php">Limpiar</a><?php endif; ?>
 </form>
 </div>
 

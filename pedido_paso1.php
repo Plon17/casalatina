@@ -6,6 +6,13 @@ require_once __DIR__ . "/includes/auditoria.php";
 
 $error = "";
 
+// Siguiente ID_detped como MAX+1 en vez de COUNT+1: pedido_detalle se borra y
+// reinserta constantemente (al editar el Paso 1, volver del Paso 2, enviar a
+// cocina...), así que contar filas puede repetir un ID que ya se usó antes.
+function siguienteIdDetalle(PDO $pdo): int {
+    return (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_detped,2) AS INTEGER)),0) AS m FROM pedido_detalle")->fetch()["m"] + 1;
+}
+
 // Si viene ?mesa=... (desde el mapa de mesas), precargamos el número para un pedido NUEVO
 $mesaPrefill = $_GET["mesa"] ?? null;
 
@@ -76,7 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
 
             $pdo->prepare("DELETE FROM pedido_detalle WHERE ID_Pedido = ?")->execute([$idPedidoExistente]);
 
-            $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
+            $d = siguienteIdDetalle($pdo);
             $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio)
                                        VALUES (?,?,?,?,?)");
             foreach ($items as $it) {
@@ -96,7 +103,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
         // Pedido nuevo. Los totales se calculan y guardan en el Paso 2.
         $pdo->beginTransaction();
         try {
-            $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido")->fetch()["c"] + 1;
+            $n = (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_Pedido,2) AS INTEGER)),0) AS m FROM pedido")->fetch()["m"] + 1;
             $idPedido = "P" . str_pad($n, 6, "0", STR_PAD_LEFT);
 
             $stmt = $pdo->prepare("INSERT INTO pedido
@@ -106,7 +113,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "guard
                 $idPedido, $_POST["num_mesa"], $_SESSION["cod_empleado"] ?? null, date("Y-m-d")
             ]);
 
-            $d = (int) $pdo->query("SELECT COUNT(*) AS c FROM pedido_detalle")->fetch()["c"] + 1;
+            $d = siguienteIdDetalle($pdo);
             $stmtDet = $pdo->prepare("INSERT INTO pedido_detalle (ID_detped, ID_Pedido, ID_Menu, cantidad, precio)
                                        VALUES (?,?,?,?,?)");
             foreach ($items as $it) {

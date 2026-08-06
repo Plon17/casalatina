@@ -70,8 +70,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
                 throw new Exception("Este pedido ya no está disponible para cobro.");
             }
 
-            // Factura automática (con RTN opcional del cliente)
-            $n = (int) $pdo->query("SELECT COUNT(*) AS c FROM factura")->fetch()["c"] + 1;
+            // Factura automática (con RTN opcional del cliente). Igual que en pedido_detalle,
+            // se genera el siguiente número con MAX+1 en vez de COUNT+1, para no arriesgarse
+            // a repetir un ID_Factura si alguna vez se borra una fila de la tabla.
+            $n = (int) $pdo->query("SELECT COALESCE(MAX(CAST(SUBSTR(ID_Factura,2) AS INTEGER)),0) AS m FROM factura")->fetch()["m"] + 1;
             $idFactura = "F" . str_pad($n, 6, "0", STR_PAD_LEFT);
             $nombreCliente = trim($_POST["nombre_cliente"] ?? "") ?: "Consumidor Final";
             $rtnCliente = trim($_POST["rtn_cliente"] ?? "") ?: null;
