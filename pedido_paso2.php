@@ -60,9 +60,15 @@ function recalcularTotalesPedido(PDO $pdo, string $idPedido): void {
 // ---------- Primer envío a cocina (pedido todavía "Abierto") ----------
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "enviar_cocina") {
     $items = json_decode($_POST["detalle_json"] ?? "", true);
+    $cantidadInvalida = false;
+    foreach ($items ?: [] as $it) {
+        if ((float) ($it["cantidad"] ?? 0) > 500) { $cantidadInvalida = true; }
+    }
 
     if (!$items || count($items) === 0) {
         $error = "El pedido no puede quedar sin productos.";
+    } elseif ($cantidadInvalida) {
+        $error = "Uno de los productos tiene una cantidad demasiado alta (máximo 500 por producto).";
     } else {
         $pdo->beginTransaction();
         try {
@@ -94,9 +100,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "envia
 // ---------- Tanda adicional (pedido ya estaba "EnCocina") ----------
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "agregar_cocina") {
     $items = json_decode($_POST["detalle_json"] ?? "", true);
+    $cantidadInvalida = false;
+    foreach ($items ?: [] as $it) {
+        if ((float) ($it["cantidad"] ?? 0) > 500) { $cantidadInvalida = true; }
+    }
 
     if (!$items || count($items) === 0) {
         $error = "Agrega al menos un producto antes de enviar.";
+    } elseif ($cantidadInvalida) {
+        $error = "Uno de los productos tiene una cantidad demasiado alta (máximo 500 por producto).";
     } else {
         $pdo->beginTransaction();
         try {
@@ -288,7 +300,7 @@ require_once __DIR__ . "/includes/layout_top.php";
             </div>
             <div class="pd-field chico">
                 <label>Cantidad</label>
-                <input type="number" id="cantidad_item" value="1" min="1">
+                <input type="number" id="cantidad_item" value="1" min="1" max="500">
             </div>
             <button type="button" onclick="agregarItem()">Agregar</button>
         </div>
@@ -353,6 +365,10 @@ require_once __DIR__ . "/includes/layout_top.php";
         const cantidad = parseInt(document.getElementById("cantidad_item").value);
         if (!seleccionado || isNaN(cantidad) || cantidad <= 0) {
             alert("Busca y selecciona un producto del menú, y pon una cantidad válida.");
+            return;
+        }
+        if (cantidad > 500) {
+            alert("Esa cantidad es demasiado alta (máximo 500 por producto). Revisa que no se te haya ido de más algún dígito.");
             return;
         }
         itemsNuevos.push({ id_menu: seleccionado.ID_Menu, nombre: seleccionado.nombre, precio: parseFloat(seleccionado.precio), cantidad: cantidad });

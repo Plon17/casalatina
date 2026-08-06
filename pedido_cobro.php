@@ -54,6 +54,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["accion"] ?? "") === "cobra
                 if ($montoRecibido < $total) {
                     throw new Exception("El monto recibido (L. " . number_format($montoRecibido, 2) . ") es menor al total (L. " . number_format($total, 2) . ").");
                 }
+                if ($montoRecibido > 100000) {
+                    throw new Exception("El monto recibido (L. " . number_format($montoRecibido, 2) . ") es demasiado alto. El máximo permitido es L. 100,000.00 — revisa que no se te haya ido de más algún dígito.");
+                }
                 $cambio = round($montoRecibido - $total, 2);
             }
 
@@ -215,7 +218,7 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
     </div>
 
     <div class="cobro-grid cobro-grid-2" id="filaEfectivo">
-        <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" id="monto_recibido" name="monto_recibido" oninput="actualizarResumen()"></div>
+        <div class="pd-field"><label>Monto Recibido</label><input type="number" step="0.01" max="100000" id="monto_recibido" name="monto_recibido" oninput="actualizarResumen()"></div>
         <div class="pd-field"><label>Cambio</label><input type="text" id="cambio" readonly></div>
     </div>
 
@@ -236,7 +239,11 @@ window.open('comanda_pdf.php?id=<?php echo urlencode($idPedido); ?>&lote=<?php e
 <div class="pd-card">
 <h3 style="margin-top:0;">Dividir cuenta</h3>
 <div class="pd-row">
-    <div class="pd-field"><label>Entre cuántas personas</label><input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()"></div>
+    <div class="pd-field">
+        <label>Entre cuántas personas</label>
+        <input type="number" min="1" max="20" value="1" id="personas" oninput="actualizarDivision()">
+        <span id="avisoPersonas" style="display:none; color:#c0392b; font-size:12px; margin-top:2px;"></span>
+    </div>
 </div>
 <p id="divisionResultado" style="margin-top:10px;"></p>
 <button type="button" onclick="imprimirDivision()">Imprimir división</button>
@@ -294,19 +301,39 @@ function validarAntesDeCobrar() {
         alert("El monto recibido es menor al total.");
         return false;
     }
+    if (recibido > 100000) {
+        alert("El monto recibido es demasiado alto (máximo L. 100,000.00). Revisa que no se te haya ido de más algún dígito.");
+        return false;
+    }
     return true;
 }
 
 function actualizarDivision() {
     const { total } = calcularTotales();
-    const personas = Math.max(1, parseInt(document.getElementById("personas").value) || 1);
+    const inputPersonas = document.getElementById("personas");
+    const aviso = document.getElementById("avisoPersonas");
+    const valorCrudo = parseInt(inputPersonas.value) || 1;
+
+    let personas = valorCrudo;
+    if (valorCrudo > 20) {
+        personas = 20;
+        aviso.textContent = "⚠ Máximo 20 personas. Se está calculando con 20.";
+        aviso.style.display = "block";
+    } else if (valorCrudo < 1) {
+        personas = 1;
+        aviso.textContent = "⚠ Mínimo 1 persona.";
+        aviso.style.display = "block";
+    } else {
+        aviso.style.display = "none";
+    }
+
     const porPersona = total / personas;
     document.getElementById("divisionResultado").textContent =
         "Cada persona paga: L. " + porPersona.toFixed(2) + " (total L. " + total.toFixed(2) + " entre " + personas + ")";
 }
 
 function imprimirDivision() {
-    const personas = Math.max(1, parseInt(document.getElementById("personas").value) || 1);
+    const personas = Math.min(20, Math.max(1, parseInt(document.getElementById("personas").value) || 1));
     const descuentoPct = document.getElementById("descuento_pct").value || 0;
     window.open('division_pdf.php?id=<?php echo urlencode($idPedido); ?>&personas=' + personas + '&descuento_pct=' + descuentoPct, '_blank');
 }

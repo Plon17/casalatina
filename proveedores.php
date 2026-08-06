@@ -93,15 +93,6 @@ require_once __DIR__ . "/includes/layout_top.php";
 
 <p class="titulo-modulo">Proveedores</p>
 
-<form method="GET" class="pd-row" style="margin-bottom:15px;">
-    <div class="pd-field" style="flex:1; min-width:220px;">
-        <label>Buscar</label>
-        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
-    </div>
-    <button type="submit">BUSCAR</button>
-    <?php if ($buscar): ?><a href="proveedores.php" style="align-self:center;">Limpiar</a><?php endif; ?>
-</form>
-
 <?php if ($mensaje): ?><p class="mensaje-ok"><?php echo htmlspecialchars($mensaje); ?></p><?php endif; ?>
 <?php if ($error): ?><p class="mensaje-error"><?php echo htmlspecialchars($error); ?></p><?php endif; ?>
 
@@ -139,6 +130,15 @@ require_once __DIR__ . "/includes/layout_top.php";
 </div>
 
 <div class="pd-card">
+<form method="GET" class="pd-row" style="margin-bottom:15px;">
+    <div class="pd-field" style="flex:1; min-width:220px;">
+        <label>Buscar</label>
+        <input type="text" name="buscar" placeholder="Buscar por nombre o ID" value="<?php echo htmlspecialchars($buscar); ?>">
+    </div>
+    <button type="submit">BUSCAR</button>
+    <?php if ($buscar): ?><a href="proveedores.php" class="btn">Limpiar</a><?php endif; ?>
+</form>
+
 <table class="pd-tabla">
 <tr><th>ID</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Dirección</th><th>Productos</th><th>Total comprado</th><th>Estado</th><th></th></tr>
 <?php if (count($proveedores) === 0): ?>

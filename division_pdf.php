@@ -11,7 +11,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 
 $idPedido = $_GET["id"] ?? "";
-$personas = max(1, (int) ($_GET["personas"] ?? 1));
+$personas = min(20, max(1, (int) ($_GET["personas"] ?? 1)));
 $descuentoPct = max(0, min(100, (float) ($_GET["descuento_pct"] ?? 0)));
 if (!$idPedido) { die("Falta el número de pedido."); }
 
