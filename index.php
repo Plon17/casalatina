@@ -41,9 +41,20 @@ $stockBajo = $pdo->query("SELECT ID_Producto, nombre_pro, cantidad_pro FROM prod
 $stockBajoTotal = (int) $pdo->query("SELECT COUNT(*) AS c FROM producto WHERE cantidad_pro <= 5 AND activo = 1")->fetch()["c"];
 
 if ($es_admin) {
-    $ventasHoy = $pdo->query("SELECT COALESCE(SUM(total),0) AS t, COUNT(*) AS c FROM factura WHERE fecha_fac = CURDATE()")->fetch();
-    $gastosHoy = (float) $pdo->query("SELECT COALESCE(SUM(monto),0) AS t FROM gastos_detalles WHERE fecha = CURDATE()")->fetch()["t"];
-    $comprasHoy = (float) $pdo->query("SELECT COALESCE(SUM(monto_total),0) AS t FROM compras WHERE fecha = CURDATE()")->fetch()["t"];
+    $hoy = date("Y-m-d");
+
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(total),0) AS t, COUNT(*) AS c FROM factura WHERE fecha_fac = ?");
+    $stmt->execute([$hoy]);
+    $ventasHoy = $stmt->fetch();
+
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(monto),0) AS t FROM gastos_detalles WHERE fecha = ?");
+    $stmt->execute([$hoy]);
+    $gastosHoy = (float) $stmt->fetch()["t"];
+
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(monto_total),0) AS t FROM compras WHERE fecha = ?");
+    $stmt->execute([$hoy]);
+    $comprasHoy = (float) $stmt->fetch()["t"];
+
     $utilidadHoy = (float) $ventasHoy["t"] - $gastosHoy - $comprasHoy;
 
     // Ventas de los últimos 7 días, para la mini gráfica de barras
